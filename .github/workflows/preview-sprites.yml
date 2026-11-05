@@ -1,0 +1,23 @@
+name: Preview Pennywise Sprite Grid
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "PennywiseNPC/assets/file_0000000062f4821096252aeb27f4faa2.png"
+      - "tools/preview_sprite_grid.py"
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate 3x9 preview
+        run: |
+          python -m pip install --quiet pillow
+          python tools/preview_sprite_grid.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PennywiseSpritePreview
+          path: sprite-preview/
+          if-no-files-found: error
