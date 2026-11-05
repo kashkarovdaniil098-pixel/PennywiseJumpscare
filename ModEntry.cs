@@ -313,7 +313,8 @@ namespace PennywiseJumpscare
 
             balloonTile = spawn.Value;
             balloonLocation = location;
-            balloonVisible = true;
+            // Hide the warning balloon at the exact moment Pennywise appears.
+            balloonVisible = false;
             pennywise!.controller = null;
             pennywise.currentLocation?.characters.Remove(pennywise);
             pennywise.currentLocation = location;
@@ -736,6 +737,11 @@ namespace PennywiseJumpscare
             StopSuspenseMusic();
             RestoreGameMusic();
             musicRampTimer = 0;
+
+            // Leave the balloon at the exact place Pennywise disappears.
+            Vector2 finalBalloonTile = pennywise?.Tile ?? balloonTile;
+            GameLocation? finalBalloonLocation = pennywise?.currentLocation ?? balloonLocation;
+
             if (pennywise != null)
             {
                 pennywise.controller = null;
@@ -744,6 +750,10 @@ namespace PennywiseJumpscare
                 pennywise.currentLocation?.characters.Remove(pennywise);
                 pennywise.currentLocation = null;
             }
+
+            balloonTile = finalBalloonTile;
+            balloonLocation = finalBalloonLocation;
+            balloonVisible = finalBalloonLocation != null;
 
             active = false;
             chasing = false;
