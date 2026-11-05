@@ -700,7 +700,6 @@ namespace PennywiseJumpscare
                     using (FileStream stream = File.OpenRead(musicPath))
                         suspenseSound = SoundEffect.FromStream(stream);
                     suspenseMusic = suspenseSound.CreateInstance();
-                    suspenseMusic.IsLooped = true;
                     suspenseMusic.Volume = 0.35f;
                 }
 
