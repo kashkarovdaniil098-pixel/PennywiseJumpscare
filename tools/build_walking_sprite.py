@@ -12,7 +12,6 @@ groups = [
     ("right", ["side_06.png", "side_07.png", "side_08.png", "side_09.png"]),
     ("up", ["back_01.png", "back_02.png", "back_01.png", "back_02.png"]),
 ]
-groups.append(("left", [None, None, None, None]))
 
 FW, FH = 16, 32
 sheet = Image.new("RGBA", (FW*4, FH*4), (0,0,0,0))
