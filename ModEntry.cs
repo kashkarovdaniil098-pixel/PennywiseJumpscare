@@ -15,17 +15,18 @@ namespace PennywiseJumpscare
         private int ticksUntilNextEvent;
         private int eventTicksLeft;
         private int repathTicks;
+        private int wanderTicks;
 
         private bool appearing;
+
         private Vector2 lastPlayerTile = new Vector2(-1000, -1000);
 
         public override void Entry(IModHelper helper)
         {
             ResetTimer();
-
             helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
 
-            Monitor.Log("Pennywise Jumpscare loaded.", LogLevel.Info);
+            Monitor.Log("Pennywise AI loaded.", LogLevel.Info);
         }
 
         private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
@@ -39,10 +40,10 @@ namespace PennywiseJumpscare
                 Game1.getCharacterFromName("Daniil.PennywiseNPC_Pennywise")
                 ?? Game1.getCharacterFromName("Pennywise");
 
-            if (pennywise == null || Game1.currentLocation == null)
-                return;
-
             var location = Game1.currentLocation;
+
+            if (pennywise == null || location == null)
+                return;
 
             if (appearing)
             {
@@ -59,23 +60,23 @@ namespace PennywiseJumpscare
             {
                 Vector2 playerTile = Game1.player.Tile;
 
-                Vector2 destination = playerTile + new Vector2(
+                Vector2 spawnTile = playerTile + new Vector2(
                     random.Next(-5, 6),
                     random.Next(-5, 6)
                 );
 
-                if (location.isTileOnMap(destination))
+                if (location.isTileOnMap(spawnTile))
                 {
                     pennywise.controller = null;
                     pennywise.currentLocation?.characters.Remove(pennywise);
                     pennywise.currentLocation = location;
-                    pennywise.setTileLocation(destination);
+                    pennywise.setTileLocation(spawnTile);
                     location.addCharacter(pennywise);
 
                     appearing = true;
                     eventTicksLeft = 60 * 8;
 
-                    Monitor.Log("Pennywise appeared nearby!", LogLevel.Info);
+                    Monitor.Log("Pennywise appeared!", LogLevel.Info);
                 }
                 else
                 {
@@ -93,12 +94,47 @@ namespace PennywiseJumpscare
 
             repathTicks = 0;
 
-            Vector2 currentPlayerTile = Game1.player.Tile;
+            Vector2 playerPosition = Game1.player.Tile;
 
             float distance = Vector2.Distance(
                 pennywise.Tile,
-                currentPlayerTile
+                playerPosition
             );
+
+            // Если игрок далеко — Пеннивайз гуляет.
+            if (distance > 8f)
+            {
+                if (pennywise.controller == null && ++wanderTicks >= 4)
+                {
+                    wanderTicks = 0;
+
+                    Point current = new Point(
+                        (int)pennywise.Tile.X,
+                        (int)pennywise.Tile.Y
+                    );
+
+                    Point destination = new Point(
+                        current.X + random.Next(-5, 6),
+                        current.Y + random.Next(-5, 6)
+                    );
+
+                    if (location.isTileOnMap(
+                        new Vector2(destination.X, destination.Y)))
+                    {
+                        pennywise.controller = new PathFindController(
+                            pennywise,
+                            location,
+                            destination,
+                            -1
+                        );
+                    }
+                }
+
+                return;
+            }
+
+            // Если игрок рядом — Пеннивайз преследует его.
+            wanderTicks = 0;
 
             if (distance <= 1.5f)
             {
@@ -108,14 +144,14 @@ namespace PennywiseJumpscare
             }
 
             bool playerMoved =
-                Vector2.DistanceSquared(currentPlayerTile, lastPlayerTile) >= 4f;
+                Vector2.DistanceSquared(playerPosition, lastPlayerTile) >= 4f;
 
             if (pennywise.controller != null && !playerMoved)
                 return;
 
             Point playerPoint = new Point(
-                (int)currentPlayerTile.X,
-                (int)currentPlayerTile.Y
+                (int)playerPosition.X,
+                (int)playerPosition.Y
             );
 
             Point[] offsets =
@@ -130,36 +166,27 @@ namespace PennywiseJumpscare
                 new Point(-1, -1)
             };
 
-            Point destinationPoint = Point.Zero;
-            bool foundDestination = false;
-
             foreach (Point offset in offsets)
             {
-                Point candidate = new Point(
+                Point destination = new Point(
                     playerPoint.X + offset.X,
                     playerPoint.Y + offset.Y
                 );
 
-                if (location.isTileOnMap(
-                    new Vector2(candidate.X, candidate.Y)))
-                {
-                    destinationPoint = candidate;
-                    foundDestination = true;
-                    break;
-                }
+                if (!location.isTileOnMap(
+                    new Vector2(destination.X, destination.Y)))
+                    continue;
+
+                pennywise.controller = new PathFindController(
+                    pennywise,
+                    location,
+                    destination,
+                    -1
+                );
+
+                lastPlayerTile = playerPosition;
+                break;
             }
-
-            if (!foundDestination)
-                return;
-
-            pennywise.controller = new PathFindController(
-                pennywise,
-                location,
-                destinationPoint,
-                -1
-            );
-
-            lastPlayerTile = currentPlayerTile;
         }
 
         private void ResetTimer()
