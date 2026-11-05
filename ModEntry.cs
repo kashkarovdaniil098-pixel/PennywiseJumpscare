@@ -119,10 +119,10 @@ namespace PennywiseJumpscare
             {
                 if (suspenseMusic.State != SoundState.Playing)
                     suspenseMusic.Play();
-                if (musicRampTimer < 600)
+                if (musicRampTimer < 180)
                     musicRampTimer++;
-                float musicBlend = Math.Min(1f, musicRampTimer / 600f);
-                suspenseMusic.Volume = 0.02f + musicBlend * 0.98f;
+                float musicBlend = Math.Min(1f, musicRampTimer / 180f);
+                suspenseMusic.Volume = 0.35f + musicBlend * 0.65f;
 
                 // Fade the game's current music down as Pennywise's track rises.
                 if (originalMusicVolume >= 0f)
@@ -594,45 +594,54 @@ namespace PennywiseJumpscare
             int sampleCount = sampleRate * seconds;
             byte[] pcm = new byte[sampleCount * 2];
 
-            // Brighter, higher-register bowed-string melody. The fundamental is
-            // supported by strong upper harmonics so it reads as a violin, not a bass drone.
+            // A continuous bowed-string phrase in the upper register.
+            // Phase is accumulated sample-by-sample, so changing notes never resets
+            // the waveform and creates the sharp clicks heard in the previous version.
             double[] notes = { 440.00, 523.25, 587.33, 659.25, 587.33, 493.88,
                                440.00, 392.00, 466.16, 523.25, 587.33, 659.25 };
             const double noteSeconds = 1.0;
             const double twoPi = Math.PI * 2.0;
+            double phase = 0.0;
+            double harmonyPhase = 0.0;
 
             for (int i = 0; i < sampleCount; i++)
             {
                 double t = i / (double)sampleRate;
                 int noteIndex = Math.Min(notes.Length - 1, (int)(t / noteSeconds));
                 double local = t - noteIndex * noteSeconds;
-                double attack = Math.Min(1.0, local / 0.16);
-                double release = Math.Min(1.0, (noteSeconds - local) / 0.18);
+
+                // Glide gently into each new note instead of making an abrupt pitch jump.
+                double previousNote = noteIndex == 0 ? notes[0] : notes[noteIndex - 1];
+                double glide = Math.Min(1.0, local / 0.075);
+                glide = glide * glide * (3.0 - 2.0 * glide);
+                double baseFrequency = previousNote + (notes[noteIndex] - previousNote) * glide;
+
+                double vibrato = 1.0 + 0.006 * Math.Sin(twoPi * 5.2 * t);
+                double slowWaver = 1.0 + 0.0012 * Math.Sin(twoPi * 0.55 * t);
+                double frequency = baseFrequency * vibrato * slowWaver;
+                phase += twoPi * frequency / sampleRate;
+                harmonyPhase += twoPi * (frequency * 1.5) / sampleRate;
+
+                // Smooth start/end for clean looping, with a sustained bow between notes.
+                double attack = Math.Min(1.0, t / 0.22);
+                double release = Math.Min(1.0, (seconds - t) / 0.30);
                 double envelope = Math.Max(0.0, Math.Min(attack, release));
-                double vibrato = 1.0 + 0.009 * Math.Sin(twoPi * 5.4 * t);
-                double frequency = notes[noteIndex] * vibrato
-                    * (1.0 + 0.0018 * Math.Sin(twoPi * 0.65 * t));
-                double phase = twoPi * frequency * t;
+                double tremolo = 0.96 + 0.04 * Math.Sin(twoPi * 4.6 * t);
 
-                // Rich bowed-string spectrum: upper partials carry the audible melody.
+                // Strong upper harmonics give the sustained tone a violin-like edge.
                 double violin =
-                    0.34 * Math.Sin(phase) +
-                    0.30 * Math.Sin(phase * 2.0 + 0.12) +
-                    0.23 * Math.Sin(phase * 3.0 + 0.28) +
-                    0.17 * Math.Sin(phase * 4.0 + 0.46) +
-                    0.12 * Math.Sin(phase * 5.0 + 0.64) +
-                    0.07 * Math.Sin(phase * 6.0 + 0.82);
+                    0.31 * Math.Sin(phase) +
+                    0.27 * Math.Sin(phase * 2.0 + 0.10) +
+                    0.22 * Math.Sin(phase * 3.0 + 0.24) +
+                    0.17 * Math.Sin(phase * 4.0 + 0.40) +
+                    0.12 * Math.Sin(phase * 5.0 + 0.58) +
+                    0.08 * Math.Sin(phase * 6.0 + 0.76) +
+                    0.045 * Math.Sin(phase * 7.0 + 0.92);
 
-                // A quiet sustained fifth adds tension without masking the melody.
-                double harmonyPhase = twoPi * (notes[noteIndex] * 1.5) * t;
                 double harmony = 0.10 * Math.Sin(harmonyPhase)
-                    + 0.045 * Math.Sin(harmonyPhase * 2.0);
-                double bowTexture = 0.018 * Math.Sin(twoPi * 31.0 * t)
-                    * Math.Sin(twoPi * 0.27 * t);
+                    + 0.035 * Math.Sin(harmonyPhase * 2.0);
 
-                double swell = 0.82 + 0.18 * (t / seconds);
-                double sample = (violin * envelope + harmony * envelope + bowTexture)
-                    * swell * 0.68;
+                double sample = (violin + harmony) * envelope * tremolo * 0.82;
                 sample = Math.Max(-0.94, Math.Min(0.94, sample));
                 short value = (short)(sample * 32767.0);
                 pcm[i * 2] = (byte)(value & 0xFF);
@@ -652,7 +661,7 @@ namespace PennywiseJumpscare
                     suspenseSound = CreateSuspenseViolinSound();
                     suspenseMusic = suspenseSound.CreateInstance();
                     // The update loop restarts the track as soon as it finishes.
-                    suspenseMusic.Volume = 0.02f;
+                    suspenseMusic.Volume = 0.35f;
                 }
 
                 if (suspenseMusic.State != SoundState.Playing)
