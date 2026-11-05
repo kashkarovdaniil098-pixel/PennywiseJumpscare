@@ -38,6 +38,7 @@ jobs:
           DLL=$(find bin/Release -type f -name 'PennywiseJumpscare.dll' | head -n 1)
           test -n "$DLL"
           cp "$DLL" dist/PennywiseJumpscare/
+          cp jumpscare.png dist/PennywiseJumpscare/
 
           cp -R PennywiseNPC/. "dist/[CP] Pennywise NPC/"
 
