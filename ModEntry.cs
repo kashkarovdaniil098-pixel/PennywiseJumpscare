@@ -17,6 +17,7 @@ namespace PennywiseJumpscare
         private NPC? pennywise;
         private Texture2D? balloonTexture;
         private Texture2D? bloodDripTexture;
+        private Texture2D? jumpscareTexture;
         private SoundEffect? suspenseSound;
         private SoundEffectInstance? suspenseMusic;
 
@@ -34,6 +35,8 @@ namespace PennywiseJumpscare
         private float originalMusicVolume = -1f;
         private int bloodFrame;
         private int bloodRefreshTimer;
+        private int silhouetteTimer;
+        private int jumpscareFaceTimer;
         private int screenShakeX;
         private int screenShakeY;
         private Vector2 lastPathPosition;
@@ -145,17 +148,29 @@ namespace PennywiseJumpscare
                 pennywise.Halt();
                 observationTimer--;
 
-                if (effectTimer > 0)
+                if (silhouetteTimer > 0)
+                {
+                    silhouetteTimer--;
+                    if (silhouetteTimer == 0)
+                    {
+                        effectTimer = 60 * 3;
+                        jumpscareFaceTimer = 60 * 2;
+                    }
+                }
+                else if (effectTimer > 0)
                 {
                     effectTimer--;
-                    if (Game1.ticks % 4 == 0)
+                    if (Game1.ticks % 3 == 0)
                     {
-                        screenShakeX = random.Next(-2, 3);
-                        screenShakeY = random.Next(-1, 2);
+                        screenShakeX = random.Next(-4, 5);
+                        screenShakeY = random.Next(-3, 4);
                         Game1.viewport.X += screenShakeX;
                         Game1.viewport.Y += screenShakeY;
                     }
                 }
+
+                if (jumpscareFaceTimer > 0)
+                    jumpscareFaceTimer--;
 
                 if (observationTimer <= 0)
                 {
@@ -258,9 +273,12 @@ namespace PennywiseJumpscare
             observing = true;
             chasing = false;
             fleeing = false;
-            // The glossy blood overlay appears briefly, then fades away.
+            // Show a full-screen silhouette first; then reveal the smiling close-up
+            // together with the blood overlay and stronger camera shake.
             observationTimer = 60 * 10;
-            effectTimer = 60 * 3;
+            silhouetteTimer = 60;
+            jumpscareFaceTimer = 0;
+            effectTimer = 0;
             encounterTimer = 60 * 30;
             attackCooldown = 0;
             pathTimer = 0;
@@ -462,7 +480,30 @@ namespace PennywiseJumpscare
 
         private void OnRenderedHud(object? sender, RenderedHudEventArgs e)
         {
-            if (!active || effectTimer <= 0 || !Context.IsWorldReady)
+            if (!active || !Context.IsWorldReady)
+                return;
+
+            if (silhouetteTimer > 0 || jumpscareFaceTimer > 0)
+            {
+                if (jumpscareTexture == null)
+                {
+                    string imagePath = Path.Combine(Helper.DirectoryPath, "jumpscare.png");
+                    using (FileStream stream = File.OpenRead(imagePath))
+                        jumpscareTexture = Texture2D.FromStream(Game1.graphics.GraphicsDevice, stream);
+                }
+
+                int screenW = Game1.viewport.Width;
+                int screenH = Game1.viewport.Height;
+                float scale = Math.Max((float)screenW / jumpscareTexture.Width, (float)screenH / jumpscareTexture.Height);
+                int drawW = (int)(jumpscareTexture.Width * scale);
+                int drawH = (int)(jumpscareTexture.Height * scale);
+                Rectangle faceRect = new Rectangle((screenW - drawW) / 2, (screenH - drawH) / 2, drawW, drawH);
+
+                if (silhouetteTimer > 0)
+                    e.SpriteBatch.Draw(jumpscareTexture, faceRect, new Color(7, 0, 8, 245));
+            }
+
+            if (effectTimer <= 0)
                 return;
 
             if (bloodDripTexture == null || ++bloodRefreshTimer >= 4)
@@ -478,6 +519,18 @@ namespace PennywiseJumpscare
                 new Rectangle(0, 0, Game1.viewport.Width, Game1.viewport.Height),
                 Color.White * bloodOpacity
             );
+
+            if (jumpscareFaceTimer > 0 && jumpscareTexture != null)
+            {
+                int screenW = Game1.viewport.Width;
+                int screenH = Game1.viewport.Height;
+                float scale = Math.Max((float)screenW / jumpscareTexture.Width, (float)screenH / jumpscareTexture.Height);
+                int drawW = (int)(jumpscareTexture.Width * scale);
+                int drawH = (int)(jumpscareTexture.Height * scale);
+                Rectangle faceRect = new Rectangle((screenW - drawW) / 2, (screenH - drawH) / 2, drawW, drawH);
+                float faceOpacity = Math.Min(1f, jumpscareFaceTimer / 12f);
+                e.SpriteBatch.Draw(jumpscareTexture, faceRect, Color.White * faceOpacity);
+            }
         }
 
         private Texture2D CreateBloodDripTexture(int frame)
@@ -735,6 +788,8 @@ namespace PennywiseJumpscare
             pathTimer = 0;
             stuckChecks = 0;
             effectTimer = 0;
+            silhouetteTimer = 0;
+            jumpscareFaceTimer = 0;
 
             appearanceTimer = 60 * 30;
             Monitor.Log("Pennywise fled and disappeared. Next appearance in 30 seconds.", LogLevel.Info);
@@ -770,7 +825,11 @@ namespace PennywiseJumpscare
             balloonTexture = null;
             bloodDripTexture?.Dispose();
             bloodDripTexture = null;
+            jumpscareTexture?.Dispose();
+            jumpscareTexture = null;
             effectTimer = 0;
+            silhouetteTimer = 0;
+            jumpscareFaceTimer = 0;
             screenShakeX = 0;
             screenShakeY = 0;
         }
