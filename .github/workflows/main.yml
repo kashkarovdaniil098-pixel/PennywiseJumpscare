@@ -1,0 +1,37 @@
+
+name: Build PennywiseJumpscare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download source
+        uses: actions/checkout@v4
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Build mod
+        run: dotnet build PennywiseJumpscare.csproj -c Release
+
+      - name: Prepare ZIP
+        run: |
+          mkdir -p output/PennywiseJumpscare
+          cp manifest.json output/PennywiseJumpscare/
+          find bin/Release -name 'PennywiseJumpscare.dll' -exec cp {} output/PennywiseJumpscare/ \;
+          cd output
+          zip -r PennywiseJumpscare.zip PennywiseJumpscare
+
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: PennywiseJumpscare
+          path: output/PennywiseJumpscare.zip
