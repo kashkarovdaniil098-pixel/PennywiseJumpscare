@@ -34,6 +34,7 @@ jobs:
           cp "$DLL" dist/PennywiseJumpscare/
           cp jumpscare.png dist/PennywiseJumpscare/
           cp animations.png dist/PennywiseJumpscare/
+          cp animations.png PennywiseNPC/assets/animations.png
 
           cp -R PennywiseNPC/. "dist/[CP] Pennywise NPC/"
 
