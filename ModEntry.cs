@@ -17,7 +17,6 @@ namespace PennywiseJumpscare
         private NPC? pennywise;
         private Texture2D? balloonTexture;
         private Texture2D? jumpscareTexture;
-        private Texture2D? animationTexture;
         private bool customSpriteApplied;
         private int animationFrameTimer;
         private int attackAnimationTimer;
@@ -533,27 +532,17 @@ namespace PennywiseJumpscare
 
             try
             {
-                string path = Path.Combine(Helper.DirectoryPath, "animations.png");
-                if (!File.Exists(path))
-                {
-                    Monitor.Log("animations.png is missing from the Pennywise mod folder.", LogLevel.Error);
-                    return;
-                }
-
-                using (FileStream stream = File.OpenRead(path))
-                    animationTexture = Texture2D.FromStream(Game1.graphics.GraphicsDevice, stream);
-
-                // Replace the NPC's actual texture. Do not draw a tiny second sprite over the old NPC.
-                pennywise.Sprite = new AnimatedSprite(animationTexture, 0, 32, 32);
+                // Content Patcher loads the cleaned 192x128 sheet under this asset key.
+                // Constructing a new AnimatedSprite replaces the NPC's original sprite object.
+                pennywise.Sprite = new AnimatedSprite("Characters/Daniil.PennywiseNPC_Pennywise", 0, 32, 32);
                 pennywise.Sprite.currentFrame = 0;
                 pennywise.Sprite.UpdateSourceRect();
                 customSpriteApplied = true;
-                Monitor.Log("Applied full-size Pennywise animation sheet (192x128, 32x32 frames).", LogLevel.Info);
+                Monitor.Log("Replaced Pennywise's original NPC sprite with the full-size animation sheet.", LogLevel.Info);
             }
             catch (Exception ex)
             {
                 Monitor.Log("Couldn't apply Pennywise's custom sprite: " + ex, LogLevel.Error);
-                animationTexture = null;
             }
         }
 
