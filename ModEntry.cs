@@ -1,6 +1,8 @@
 using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Audio;
+using System.IO;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
@@ -15,6 +17,8 @@ namespace PennywiseJumpscare
         private NPC? pennywise;
         private Texture2D? balloonTexture;
         private Texture2D? bloodDripTexture;
+        private SoundEffect? suspenseSound;
+        private SoundEffectInstance? suspenseMusic;
 
         private int appearanceTimer;
         private int encounterTimer;
@@ -223,6 +227,7 @@ namespace PennywiseJumpscare
             pennywise.speed = Math.Max(1, normalSpeed);
 
             active = true;
+            StartSuspenseMusic();
             observing = true;
             chasing = false;
             fleeing = false;
@@ -440,17 +445,20 @@ namespace PennywiseJumpscare
             int screenHeight = Game1.viewport.Height;
             Color tint = new Color(205, 12, 28, 205);
 
-            // A few translucent, stylized red streaks slide down the screen edges.
-            int[] xPositions = { screenWidth / 12, screenWidth / 3, screenWidth * 2 / 3, screenWidth * 11 / 12 };
-            int[] startY = { -35, -90, -15, -65 };
-            for (int i = 0; i < xPositions.Length; i++)
+            // Continuous red band along the top edge.
+            e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle(0, 0, screenWidth, 16), new Color(155, 0, 18, 235));
+
+            // Many larger drips flow down from the band, with staggered phases.
+            const int dripCount = 32;
+            for (int i = 0; i < dripCount; i++)
             {
-                int y = (startY[i] + elapsed * (1 + i % 2)) % (screenHeight + 50);
-                e.SpriteBatch.Draw(
-                    bloodDripTexture,
-                    new Rectangle(xPositions[i], y, 12 + (i % 2) * 4, 42 + (i % 2) * 12),
-                    tint
-                );
+                int x = (i * screenWidth / dripCount) + (i % 3) * 5;
+                int speed = 2 + (i % 4);
+                int phase = (i * 37) % (screenHeight + 150);
+                int y = (phase + elapsed * speed) % (screenHeight + 100) - 100;
+                int width = 24 + (i % 3) * 5;
+                int height = 88 + (i % 4) * 14;
+                e.SpriteBatch.Draw(bloodDripTexture, new Rectangle(x, y, width, height), tint);
             }
         }
 
