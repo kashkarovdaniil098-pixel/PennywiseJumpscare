@@ -349,7 +349,7 @@ namespace PennywiseJumpscare
             LoadJumpscarePortrait();
             encounterTimer = 60 * 30;
             attackCooldown = 0;
-            pathTimer = 0;
+            pathTimer = 59; // Recalculate the chase path on the very next update tick.
             stuckChecks = 0;
             lastPathPosition = pennywise.Position;
 
