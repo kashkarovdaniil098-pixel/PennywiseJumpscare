@@ -6,7 +6,6 @@ using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.Pathfinding;
-using xTile.Dimensions;
 
 namespace PennywiseJumpscare
 {
@@ -122,9 +121,7 @@ namespace PennywiseJumpscare
         private bool IsPassable(GameLocation location, Vector2 tile)
         {
             return location.isTileOnMap(tile) &&
-                location.isTilePassable(
-                    new Location((int)tile.X, (int)tile.Y)
-                );
+                location.isTilePassable(tile);
         }
 
         private void TryAppear()
@@ -282,7 +279,7 @@ namespace PennywiseJumpscare
 
             e.SpriteBatch.Draw(
                 Game1.staminaRect,
-                new Rectangle(
+                new Microsoft.Xna.Framework.Rectangle(
                     (int)position.X + 7,
                     (int)position.Y + 15,
                     1,
