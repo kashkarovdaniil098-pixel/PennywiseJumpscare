@@ -42,7 +42,7 @@ jobs:
           cp -R PennywiseNPC/. "dist/[CP] Pennywise NPC/"
 
           # Generate the original suspense loop with a standalone Python script.
-          python tools/generate_suspense.py
+          python generate_suspense.py
 
           cd dist
           zip -r ../PennywiseMod.zip PennywiseJumpscare "[CP] Pennywise NPC"
