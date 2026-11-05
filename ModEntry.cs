@@ -6,6 +6,7 @@ using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.Pathfinding;
+using xTile.Dimensions;
 
 namespace PennywiseJumpscare
 {
@@ -21,7 +22,6 @@ namespace PennywiseJumpscare
         private int stalkingTimer;
         private int attackCooldown;
         private int pathTimer;
-
         private int normalSpeed = -1;
 
         private bool active;
@@ -84,7 +84,6 @@ namespace PennywiseJumpscare
                 Game1.player.Tile
             );
 
-            // Наблюдение за игроком перед погоней.
             if (!chasing)
             {
                 pennywise.speed = normalSpeed;
@@ -99,7 +98,6 @@ namespace PennywiseJumpscare
                 return;
             }
 
-            // Атака на расстоянии 1,5 клетки.
             if (distance <= 1.5f)
             {
                 pennywise.controller = null;
@@ -114,12 +112,19 @@ namespace PennywiseJumpscare
                 return;
             }
 
-            // Перестраивание маршрута.
             if (++pathTimer >= 15)
             {
                 pathTimer = 0;
                 FollowPlayer();
             }
+        }
+
+        private bool IsPassable(GameLocation location, Vector2 tile)
+        {
+            return location.isTileOnMap(tile) &&
+                location.isTilePassable(
+                    new Location((int)tile.X, (int)tile.Y)
+                );
         }
 
         private void TryAppear()
@@ -140,10 +145,7 @@ namespace PennywiseJumpscare
 
                 Vector2 tile = playerTile + new Vector2(dx, dy);
 
-                if (!location.isTileOnMap(tile))
-                    continue;
-
-                if (location.isTileOccupiedBy(tile))
+                if (!IsPassable(location, tile))
                     continue;
 
                 if (fallbackPosition == null)
@@ -174,7 +176,6 @@ namespace PennywiseJumpscare
 
             active = true;
             chasing = false;
-
             stalkingTimer = 0;
             encounterTimer = 60 * 35;
             pathTimer = 0;
@@ -239,10 +240,7 @@ namespace PennywiseJumpscare
                     destination.Y
                 );
 
-                if (!location.isTileOnMap(tile))
-                    continue;
-
-                if (location.isTileOccupiedBy(tile))
+                if (!IsPassable(location, tile))
                     continue;
 
                 pennywise.speed = Math.Max(
@@ -282,7 +280,6 @@ namespace PennywiseJumpscare
                 Color.White
             );
 
-            // Нить шарика.
             e.SpriteBatch.Draw(
                 Game1.staminaRect,
                 new Rectangle(
