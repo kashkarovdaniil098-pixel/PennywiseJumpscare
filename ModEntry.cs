@@ -9,88 +9,86 @@ namespace PennywiseJumpscare
 {
     public sealed class ModEntry : Mod
     {
-        private readonly Random random = new Random();
-        private int ticksUntilNextEvent;
-        private int eventTicksLeft;
-        private bool hiding;
+        private int repathTicks;
+        private Vector2 lastPlayerTile = new Vector2(-1000, -1000);
 
         public override void Entry(IModHelper helper)
         {
-            ResetTimer();
-
             helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
-
-            Monitor.Log("PennywiseJumpscare loaded.", LogLevel.Info);
+            Monitor.Log("Pennywise follow AI loaded.", LogLevel.Info);
         }
 
         private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
         {
-            if (!Context.IsWorldReady ||
-                Game1.eventUp ||
-                Game1.currentMinigame != null)
+            if (!Context.IsWorldReady || Game1.eventUp || Game1.currentMinigame != null)
                 return;
+
+            if (++repathTicks < 45)
+                return;
+
+            repathTicks = 0;
 
             NPC? pennywise =
                 Game1.getCharacterFromName("Daniil.PennywiseNPC_Pennywise")
                 ?? Game1.getCharacterFromName("Pennywise");
 
-            if (hiding)
-            {
-                if (--eventTicksLeft <= 0)
-                {
-                    hiding = false;
-
-                    pennywise?.setTileLocation(new Vector2(47, 87));
-
-                    ResetTimer();
-                }
-
+            var location = Game1.currentLocation;
+            if (pennywise == null || location == null || pennywise.currentLocation != location)
                 return;
-            }
-
-            if (--ticksUntilNextEvent > 0)
-                return;
-
-            if (pennywise == null || Game1.currentLocation == null)
-            {
-                ResetTimer();
-                return;
-            }
 
             Vector2 playerTile = Game1.player.Tile;
+            float distance = Vector2.Distance(pennywise.Tile, playerTile);
 
-            Vector2 destination = playerTile + new Vector2(
-                random.Next(-5, 6),
-                random.Next(-5, 6)
-            );
-
-            if (!Game1.currentLocation.isTileOnMap(destination))
+            if (distance <= 1.5f)
             {
-                ResetTimer();
+                if (pennywise.controller != null)
+                {
+                    pennywise.controller = null;
+                    pennywise.Halt();
+                }
+
+                lastPlayerTile = playerTile;
                 return;
             }
 
-            pennywise.currentLocation?.characters.Remove(pennywise);
+            bool playerMoved = Vector2.DistanceSquared(playerTile, lastPlayerTile) >= 4f;
+            if (pennywise.controller != null && !playerMoved)
+                return;
 
-            pennywise.currentLocation = Game1.currentLocation;
+            Point[] offsets =
+            {
+                new Point(1, 0), new Point(-1, 0),
+                new Point(0, 1), new Point(0, -1),
+                new Point(1, 1), new Point(-1, 1),
+                new Point(1, -1), new Point(-1, -1)
+            };
 
-            pennywise.setTileLocation(destination);
+            Point playerPoint = new Point((int)playerTile.X, (int)playerTile.Y);
+            Point destination = Point.Zero;
+            bool foundDestination = false;
 
-            Game1.currentLocation.addCharacter(pennywise);
+            foreach (Point offset in offsets)
+            {
+                Point candidate = new Point(playerPoint.X + offset.X, playerPoint.Y + offset.Y);
+                if (location.isTileOnMap(new Vector2(candidate.X, candidate.Y)))
+                {
+                    destination = candidate;
+                    foundDestination = true;
+                    break;
+                }
+            }
 
-            hiding = true;
+            if (!foundDestination)
+                return;
 
-            eventTicksLeft = 60 * 8;
-
-            Monitor.Log("Pennywise appeared nearby.", LogLevel.Info);
-        }
-
-        private void ResetTimer()
-        {
-            ticksUntilNextEvent = random.Next(
-                60 * 60 * 60,
-                60 * 60 * 180
+            pennywise.controller = new PathFindController(
+                pennywise,
+                location,
+                destination,
+                -1
             );
+
+            lastPlayerTile = playerTile;
         }
     }
 }
