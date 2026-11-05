@@ -1,16 +1,15 @@
 
-
 name: Build PennywiseJumpscare
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -18,14 +17,11 @@ jobs:
         with:
           dotnet-version: 6.0.x
 
-      - name: Add game references
-        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-reference-assemblies@v1
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-reference-assemblies@v1
 
-      - name: Build
-        run: dotnet build PennywiseJumpscare.csproj -c Release
+      - run: dotnet build PennywiseJumpscare.csproj -c Release
 
-      - name: Upload ZIP
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: PennywiseJumpscare
-          path: bin/Release/**/*.zip
+          path: bin/Release/
