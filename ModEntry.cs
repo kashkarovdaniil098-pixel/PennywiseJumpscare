@@ -110,6 +110,10 @@ namespace PennywiseJumpscare
                 return;
             }
 
+            // The generated suspense track is an 8-second loop; restart it while the encounter is active.
+            if (suspenseMusic != null && suspenseMusic.State != SoundState.Playing)
+                suspenseMusic.Play();
+
             if (pennywise.currentLocation != Game1.currentLocation)
                 return;
 
@@ -505,7 +509,6 @@ namespace PennywiseJumpscare
                     using (FileStream stream = File.OpenRead(path))
                         suspenseSound = SoundEffect.FromStream(stream);
                     suspenseMusic = suspenseSound.CreateInstance();
-                    suspenseMusic.IsLooped = true;
                     suspenseMusic.Volume = 0.35f;
                 }
 
