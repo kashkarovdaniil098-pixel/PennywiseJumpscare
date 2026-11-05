@@ -15,7 +15,7 @@ namespace PennywiseJumpscare
         private int ticksUntilNextEvent;
         private int eventTicksLeft;
         private int repathTicks;
-        private int wanderTicks;
+        private int wanderPauseTicks;
 
         private bool appearing;
 
@@ -24,6 +24,7 @@ namespace PennywiseJumpscare
         public override void Entry(IModHelper helper)
         {
             ResetTimer();
+
             helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
 
             Monitor.Log("Pennywise AI loaded.", LogLevel.Info);
@@ -101,12 +102,16 @@ namespace PennywiseJumpscare
                 playerPosition
             );
 
-            // Если игрок далеко — Пеннивайз гуляет.
+            // Случайная прогулка по карте
             if (distance > 8f)
             {
-                if (pennywise.controller == null && ++wanderTicks >= 4)
+                if (pennywise.controller == null)
                 {
-                    wanderTicks = 0;
+                    if (wanderPauseTicks > 0)
+                    {
+                        wanderPauseTicks--;
+                        return;
+                    }
 
                     Point current = new Point(
                         (int)pennywise.Tile.X,
@@ -127,14 +132,16 @@ namespace PennywiseJumpscare
                             destination,
                             -1
                         );
+
+                        wanderPauseTicks = random.Next(120, 300);
                     }
                 }
 
                 return;
             }
 
-            // Если игрок рядом — Пеннивайз преследует его.
-            wanderTicks = 0;
+            // Преследование игрока
+            wanderPauseTicks = 0;
 
             if (distance <= 1.5f)
             {
