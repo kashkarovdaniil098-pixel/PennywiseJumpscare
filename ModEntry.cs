@@ -1,4 +1,3 @@
-
 using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -22,8 +21,15 @@ namespace PennywiseJumpscare
         private int pathTimer;
         private int normalSpeed = -1;
 
+        private int observationTimer;
+        private int fleeTimer;
+        private int stuckChecks;
+        private Vector2 lastPathPosition;
+
         private bool active;
         private bool chasing;
+        private bool observing;
+        private bool fleeing;
         private bool missingNpcLogged;
 
         public override void Entry(IModHelper helper)
@@ -38,69 +44,47 @@ namespace PennywiseJumpscare
             Monitor.Log("Pennywise AI loaded.", LogLevel.Info);
         }
 
-        private void OnSaveLoaded(
-            object? sender,
-            SaveLoadedEventArgs e)
+        private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
         {
-            appearanceTimer = 0;
+            appearanceTimer = 60 * 50;
             active = false;
             chasing = false;
+            observing = false;
+            fleeing = false;
             pathTimer = 0;
-
-            Monitor.Log(
-                "Save loaded. Pennywise will appear immediately.",
-                LogLevel.Info
-            );
+            Monitor.Log("Save loaded. Pennywise's first appearance is scheduled in 50 seconds.", LogLevel.Info);
         }
 
-        private void OnUpdateTicked(
-            object? sender,
-            UpdateTickedEventArgs e)
+        private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
         {
-            if (!Context.IsWorldReady ||
-                Game1.eventUp ||
-                Game1.currentMinigame != null)
+            if (!Context.IsWorldReady || Game1.eventUp || Game1.currentMinigame != null)
                 return;
 
             if (pennywise == null)
             {
-                pennywise =
-                    Game1.getCharacterFromName(
-                        "Daniil.PennywiseNPC_Pennywise")
+                pennywise = Game1.getCharacterFromName("Daniil.PennywiseNPC_Pennywise")
                     ?? Game1.getCharacterFromName("Pennywise");
 
                 if (pennywise == null)
                 {
                     if (!missingNpcLogged)
                     {
-                        Monitor.Log(
-                            "Pennywise NPC instance not found. Check the Pennywise NPC content pack.",
-                            LogLevel.Warn
-                        );
-
+                        Monitor.Log("Pennywise NPC instance not found. Check the Pennywise NPC content pack.", LogLevel.Warn);
                         missingNpcLogged = true;
                     }
-
                     return;
                 }
 
                 normalSpeed = Math.Max(1, pennywise.speed);
                 missingNpcLogged = false;
-
-                Monitor.Log(
-                    "Pennywise NPC found.",
-                    LogLevel.Info
-                );
+                Monitor.Log("Pennywise NPC found.", LogLevel.Info);
             }
-
-            if (appearanceTimer > 0)
-                appearanceTimer--;
-
-            if (attackCooldown > 0)
-                attackCooldown--;
 
             if (!active)
             {
+                if (appearanceTimer > 0)
+                    appearanceTimer--;
+
                 if (appearanceTimer <= 0)
                     TryAppear();
 
@@ -110,18 +94,40 @@ namespace PennywiseJumpscare
             if (pennywise.currentLocation != Game1.currentLocation)
                 return;
 
-            encounterTimer--;
-
-            if (encounterTimer <= 0)
+            if (observing)
             {
-                EndEncounter();
+                pennywise.controller = null;
+                pennywise.Halt();
+                observationTimer--;
+
+                if (observationTimer <= 0)
+                {
+                    observing = false;
+                    chasing = true;
+                    pathTimer = 60;
+                    lastPathPosition = pennywise.Position;
+                    stuckChecks = 0;
+                    Monitor.Log("Pennywise has left cover and started chasing.", LogLevel.Info);
+                }
                 return;
             }
 
-            float distance = Vector2.Distance(
-                pennywise.Tile,
-                Game1.player.Tile
-            );
+            if (fleeing)
+            {
+                fleeTimer--;
+                if (fleeTimer <= 0)
+                    EndEncounter();
+                return;
+            }
+
+            encounterTimer--;
+            if (encounterTimer <= 0)
+            {
+                StartFleeing();
+                return;
+            }
+
+            float distance = Vector2.Distance(pennywise.Tile, Game1.player.Tile);
 
             if (distance <= 1.5f)
             {
@@ -132,90 +138,122 @@ namespace PennywiseJumpscare
                 {
                     Game1.player.takeDamage(10, true, null);
                     attackCooldown = 120;
-
-                    Monitor.Log(
-                        "Pennywise attacked the player for 10 HP.",
-                        LogLevel.Info
-                    );
+                    Monitor.Log("Pennywise attacked the player for 10 HP.", LogLevel.Info);
                 }
-
                 return;
             }
 
-            if (chasing)
+            if (attackCooldown > 0)
+                attackCooldown--;
+
+            if (chasing && ++pathTimer >= 60)
             {
-                if (++pathTimer >= 15)
+                pathTimer = 0;
+                if (Vector2.Distance(pennywise.Position, lastPathPosition) < 4f && pennywise.controller != null)
+                    stuckChecks++;
+                else
+                    stuckChecks = 0;
+
+                lastPathPosition = pennywise.Position;
+
+                // Don't replace an active path every few ticks. That caused the NPC
+                // to repeatedly restart its route and shuffle back and forth.
+                if (pennywise.controller == null || stuckChecks >= 2)
                 {
-                    pathTimer = 0;
+                    pennywise.controller = null;
+                    stuckChecks = 0;
                     FollowPlayer();
                 }
             }
         }
 
-        private bool IsPassable(
-            GameLocation location,
-            Vector2 tile)
+        private bool IsPassable(GameLocation location, Vector2 tile)
         {
-            return location.isTileOnMap(tile) &&
-                   location.isTilePassable(tile);
+            return location.isTileOnMap(tile) && location.isTilePassable(tile);
         }
 
         private void TryAppear()
         {
             GameLocation location = Game1.currentLocation;
             Vector2 playerTile = Game1.player.Tile;
+            Vector2? spawn = FindCoveredSpawn(location, playerTile);
 
-            Vector2? spawn = null;
-
-            for (int i = 0; i < 100; i++)
-            {
-                int dx = random.Next(-8, 9);
-                int dy = random.Next(-8, 9);
-
-                if (Math.Abs(dx) + Math.Abs(dy) < 4)
-                    continue;
-
-                Vector2 tile = playerTile +
-                    new Vector2(dx, dy);
-
-                if (!IsPassable(location, tile))
-                    continue;
-
-                spawn = tile;
-                break;
-            }
+            if (spawn == null)
+                spawn = FindFallbackSpawn(location, playerTile);
 
             if (spawn == null)
             {
                 appearanceTimer = 60;
-                Monitor.Log(
-                    "No suitable spawn tile found. Retrying.",
-                    LogLevel.Warn
-                );
+                Monitor.Log("No suitable spawn tile found. Retrying.", LogLevel.Warn);
                 return;
             }
 
             pennywise!.controller = null;
             pennywise.currentLocation?.characters.Remove(pennywise);
-
             pennywise.currentLocation = location;
             pennywise.setTileLocation(spawn.Value);
-
             location.addCharacter(pennywise);
-
             pennywise.speed = Math.Max(1, normalSpeed);
 
             active = true;
-            chasing = true;
-
-            pathTimer = 14;
+            observing = true;
+            chasing = false;
+            fleeing = false;
+            observationTimer = 60 * 3;
             encounterTimer = 60 * 35;
             attackCooldown = 0;
+            pathTimer = 0;
+            stuckChecks = 0;
+            lastPathPosition = pennywise.Position;
 
-            Monitor.Log(
-                "Pennywise appeared and started chasing immediately.",
-                LogLevel.Info
-            );
+            Monitor.Log("Pennywise appeared behind nearby cover and is watching the player.", LogLevel.Info);
+        }
+
+        private Vector2? FindCoveredSpawn(GameLocation location, Vector2 playerTile)
+        {
+            // Look for a passable tile on the far side of an impassable cover tile.
+            // This works with map obstacles such as trees, bushes, and fences.
+            for (int i = 0; i < 160; i++)
+            {
+                int dx = random.Next(-8, 9);
+                int dy = random.Next(-8, 9);
+                if (Math.Abs(dx) + Math.Abs(dy) < 4)
+                    continue;
+
+                Vector2 candidate = playerTile + new Vector2(dx, dy);
+                if (!IsPassable(location, candidate))
+                    continue;
+
+                Vector2 direction = playerTile - candidate;
+                float length = direction.Length();
+                if (length < 0.001f)
+                    continue;
+
+                direction.Normalize();
+                Vector2 coverTile = candidate + new Vector2(
+                    (float)Math.Round(direction.X),
+                    (float)Math.Round(direction.Y)
+                );
+
+                if (location.isTileOnMap(coverTile) && !location.isTilePassable(coverTile))
+                    return candidate;
+            }
+
+            return null;
+        }
+
+        private Vector2? FindFallbackSpawn(GameLocation location, Vector2 playerTile)
+        {
+            for (int i = 0; i < 120; i++)
+            {
+                Vector2 candidate = playerTile + new Vector2(random.Next(-8, 9), random.Next(-8, 9));
+                if (Math.Abs(candidate.X - playerTile.X) + Math.Abs(candidate.Y - playerTile.Y) < 4)
+                    continue;
+                if (IsPassable(location, candidate))
+                    return candidate;
+            }
+
+            return null;
         }
 
         private void FollowPlayer()
@@ -225,122 +263,135 @@ namespace PennywiseJumpscare
 
             GameLocation location = Game1.currentLocation;
             Vector2 playerTile = Game1.player.Tile;
-
-            Point playerPoint = new Point(
-                (int)playerTile.X,
-                (int)playerTile.Y
-            );
+            Point playerPoint = new Point((int)playerTile.X, (int)playerTile.Y);
 
             Point[] offsets =
             {
-                new Point(1, 0),
-                new Point(-1, 0),
-                new Point(0, 1),
-                new Point(0, -1),
-                new Point(1, 1),
-                new Point(-1, 1),
-                new Point(1, -1),
-                new Point(-1, -1)
+                new Point(1, 0), new Point(-1, 0),
+                new Point(0, 1), new Point(0, -1),
+                new Point(1, 1), new Point(-1, 1),
+                new Point(1, -1), new Point(-1, -1)
             };
 
+            // Prefer a nearby reachable tile around the player, but don't constantly
+            // cancel the NPC's current path while it is moving.
             foreach (Point offset in offsets)
             {
-                Point destination = new Point(
-                    playerPoint.X + offset.X,
-                    playerPoint.Y + offset.Y
-                );
-
-                Vector2 tile = new Vector2(
-                    destination.X,
-                    destination.Y
-                );
-
+                Point destination = new Point(playerPoint.X + offset.X, playerPoint.Y + offset.Y);
+                Vector2 tile = new Vector2(destination.X, destination.Y);
                 if (!IsPassable(location, tile))
                     continue;
 
                 try
                 {
-                    pennywise.speed = Math.Max(
-                        1,
-                        (int)Math.Ceiling(normalSpeed * 1.2)
-                    );
-
-                    pennywise.controller = new PathFindController(
-                        pennywise,
-                        location,
-                        destination,
-                        -1
-                    );
-
-                    if (pennywise.controller != null)
+                    pennywise.speed = Math.Max(1, (int)Math.Ceiling(normalSpeed * 1.2));
+                    var controller = new PathFindController(pennywise, location, destination, -1);
+                    if (controller != null)
                     {
-                        Monitor.Log(
-                            "Pennywise path created: " + destination,
-                            LogLevel.Trace
-                        );
-
+                        pennywise.controller = controller;
                         return;
                     }
                 }
                 catch (Exception ex)
                 {
-                    Monitor.Log(
-                        "Pathfinding error: " + ex,
-                        LogLevel.Warn
-                    );
+                    Monitor.Log("Pathfinding error: " + ex.Message, LogLevel.Warn);
                 }
             }
 
-            Monitor.Log(
-                "Pennywise couldn't find a path.",
-                LogLevel.Warn
-            );
+            Monitor.Log("Pennywise couldn't find a path; will retry shortly.", LogLevel.Trace);
         }
 
-        private void OnRenderedWorld(
-            object? sender,
-            RenderedWorldEventArgs e)
+        private void StartFleeing()
         {
-            if (!active ||
-                pennywise == null ||
-                pennywise.currentLocation != Game1.currentLocation)
+            if (pennywise == null)
+            {
+                EndEncounter();
+                return;
+            }
+
+            fleeing = true;
+            chasing = false;
+            observing = false;
+            fleeTimer = 60 * 3;
+            pennywise.controller = null;
+            pennywise.speed = Math.Max(1, (int)Math.Ceiling(normalSpeed * 1.5));
+            SendPennywiseAway();
+            Monitor.Log("Pennywise is fleeing before disappearing.", LogLevel.Info);
+        }
+
+        private void SendPennywiseAway()
+        {
+            if (pennywise == null)
+                return;
+
+            GameLocation location = Game1.currentLocation;
+            Vector2 fromPlayer = pennywise.Tile - Game1.player.Tile;
+            if (fromPlayer.LengthSquared() < 0.01f)
+                fromPlayer = new Vector2(1, 0);
+            fromPlayer.Normalize();
+
+            Vector2 best = pennywise.Tile;
+            float bestDistance = Vector2.Distance(best, Game1.player.Tile);
+
+            for (int i = 0; i < 24; i++)
+            {
+                float angle = (float)(i * Math.PI / 12.0);
+                Vector2 direction = new Vector2(
+                    (float)Math.Cos(angle) * fromPlayer.X - (float)Math.Sin(angle) * fromPlayer.Y,
+                    (float)Math.Sin(angle) * fromPlayer.X + (float)Math.Cos(angle) * fromPlayer.Y
+                );
+                Vector2 candidate = pennywise.Tile + direction * 7f;
+                if (!IsPassable(location, candidate))
+                    continue;
+
+                float distance = Vector2.Distance(candidate, Game1.player.Tile);
+                if (distance > bestDistance)
+                {
+                    bestDistance = distance;
+                    best = candidate;
+                }
+            }
+
+            Point target = new Point((int)best.X, (int)best.Y);
+            try
+            {
+                pennywise.controller = new PathFindController(pennywise, location, target, -1);
+            }
+            catch (Exception ex)
+            {
+                Monitor.Log("Flee pathfinding error: " + ex.Message, LogLevel.Warn);
+            }
+        }
+
+        private void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
+        {
+            if (!active || pennywise == null || pennywise.currentLocation != Game1.currentLocation)
                 return;
 
             balloonTexture ??= CreateBalloonTexture();
-
             Vector2 position = Game1.GlobalToLocal(
                 Game1.viewport,
-                pennywise.Position + new Vector2(38, 8)
+                pennywise.Position + new Vector2(34, 0)
             );
 
-            e.SpriteBatch.Draw(
-                balloonTexture,
-                position,
-                Color.White
-            );
+            e.SpriteBatch.Draw(balloonTexture, position, Color.White);
         }
 
         private Texture2D CreateBalloonTexture()
         {
-            Texture2D texture = new Texture2D(
-                Game1.graphics.GraphicsDevice,
-                16,
-                22
-            );
+            const int width = 28;
+            const int height = 38;
+            Texture2D texture = new Texture2D(Game1.graphics.GraphicsDevice, width, height);
+            Color[] pixels = new Color[width * height];
 
-            Color[] pixels = new Color[16 * 22];
-
-            for (int y = 0; y < 22; y++)
+            for (int y = 0; y < height; y++)
             {
-                for (int x = 0; x < 16; x++)
+                for (int x = 0; x < width; x++)
                 {
-                    float dx = (x - 8f) / 7f;
-                    float dy = (y - 8f) / 9f;
-
-                    pixels[y * 16 + x] =
-                        dx * dx + dy * dy <= 1f
-                        ? Color.Red
-                        : Color.Transparent;
+                    float dx = (x - 14f) / 13f;
+                    float dy = (y - 13f) / 16f;
+                    bool inside = dx * dx + dy * dy <= 1f;
+                    pixels[y * width + x] = inside ? Color.Red : Color.Transparent;
                 }
             }
 
@@ -355,54 +406,45 @@ namespace PennywiseJumpscare
                 pennywise.controller = null;
                 pennywise.Halt();
                 pennywise.speed = normalSpeed;
-
-                pennywise.currentLocation?.characters.Remove(
-                    pennywise
-                );
-
+                pennywise.currentLocation?.characters.Remove(pennywise);
                 pennywise.currentLocation = null;
             }
 
             active = false;
             chasing = false;
+            observing = false;
+            fleeing = false;
             pathTimer = 0;
+            stuckChecks = 0;
 
-            Monitor.Log(
-                "Pennywise encounter ended.",
-                LogLevel.Info
-            );
-
+            Monitor.Log("Pennywise fled and disappeared. Next appearance in 50 seconds.", LogLevel.Info);
             ResetAppearanceTimer();
         }
 
         private void ResetAppearanceTimer()
         {
-            appearanceTimer = random.Next(
-                60 * 60,
-                60 * 60 * 3
-            );
+            appearanceTimer = 60 * 50;
         }
 
-        private void OnReturnedToTitle(
-            object? sender,
-            ReturnedToTitleEventArgs e)
+        private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
         {
             if (pennywise != null)
             {
                 pennywise.controller = null;
-                pennywise.currentLocation?.characters.Remove(
-                    pennywise
-                );
+                pennywise.currentLocation?.characters.Remove(pennywise);
             }
 
             active = false;
             chasing = false;
+            observing = false;
+            fleeing = false;
             pennywise = null;
-
             normalSpeed = -1;
             appearanceTimer = 0;
             pathTimer = 0;
-            missingNpcLogged = false;
+            observationTimer = 0;
+            fleeTimer = 0;
+            stuckChecks = 0;
 
             balloonTexture?.Dispose();
             balloonTexture = null;
