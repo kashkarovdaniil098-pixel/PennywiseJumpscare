@@ -1,4 +1,5 @@
 
+
 name: Build PennywiseJumpscare
 
 on:
@@ -11,27 +12,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 6.0.x
 
-      - name: Build mod
-        run: dotnet build PennywiseJumpscare.csproj -c Release
+      - name: Add game references
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-reference-assemblies@v1
 
-      - name: Prepare ZIP
-        run: |
-          mkdir -p output/PennywiseJumpscare
-          cp manifest.json output/PennywiseJumpscare/
-          find bin/Release -name 'PennywiseJumpscare.dll' -exec cp {} output/PennywiseJumpscare/ \;
-          cd output
-          zip -r PennywiseJumpscare.zip PennywiseJumpscare
+      - name: Build
+        run: dotnet build PennywiseJumpscare.csproj -c Release
 
       - name: Upload ZIP
         uses: actions/upload-artifact@v4
         with:
           name: PennywiseJumpscare
-          path: output/PennywiseJumpscare.zip
+          path: bin/Release/**/*.zip
