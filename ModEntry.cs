@@ -323,7 +323,7 @@ namespace PennywiseJumpscare
             pennywise.setTileLocation(spawn.Value);
             location.addCharacter(pennywise);
             pennywise.speed = Math.Max(1, normalSpeed * 3);
-            pennywise.scale = normalScale * 1.5f;
+            pennywise.Scale = normalScale * 1.5f;
 
             originalMusicVolume = Game1.musicPlayerVolume;
             active = true;
