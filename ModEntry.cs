@@ -17,6 +17,9 @@ namespace PennywiseJumpscare
         private NPC? pennywise;
         private Texture2D? balloonTexture;
         private Texture2D? jumpscareTexture;
+        private Texture2D? animationTexture;
+        private int animationFrameTimer;
+        private int attackAnimationTimer;
         private SoundEffect? suspenseSound;
         private SoundEffectInstance? suspenseMusic;
 
@@ -171,6 +174,9 @@ namespace PennywiseJumpscare
 
             if (attackCooldown > 0)
                 attackCooldown--;
+            if (attackAnimationTimer > 0)
+                attackAnimationTimer--;
+            animationFrameTimer++;
 
             if (observing)
             {
@@ -216,6 +222,8 @@ namespace PennywiseJumpscare
                 {
                     Game1.player.takeDamage(10, true, null);
                     attackCooldown = 120;
+                    attackAnimationTimer = 30;
+                    animationFrameTimer = 0;
                     Monitor.Log("Pennywise attacked the player for 10 HP.", LogLevel.Info);
                 }
                 return;
@@ -503,6 +511,8 @@ namespace PennywiseJumpscare
 
         private void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
         {
+            DrawPennywiseAnimation(e);
+
             if (!balloonVisible || balloonLocation != Game1.currentLocation)
                 return;
 
@@ -513,6 +523,42 @@ namespace PennywiseJumpscare
             );
             Vector2 position = Game1.GlobalToLocal(Game1.viewport, worldPosition);
             e.SpriteBatch.Draw(balloonTexture, position, Color.White);
+        }
+
+        private void DrawPennywiseAnimation(RenderedWorldEventArgs e)
+        {
+            if (!active || pennywise == null || pennywise.currentLocation != Game1.currentLocation)
+                return;
+
+            try
+            {
+                if (animationTexture == null)
+                {
+                    string path = Path.Combine(Helper.DirectoryPath, "animations.png");
+                    if (!File.Exists(path))
+                        return;
+                    using (FileStream stream = File.OpenRead(path))
+                        animationTexture = Texture2D.FromStream(Game1.graphics.GraphicsDevice, stream);
+                }
+
+                int frame;
+                if (attackAnimationTimer > 0)
+                    frame = 19 + ((30 - attackAnimationTimer) / 6 % 5);
+                else if (fleeing)
+                    frame = 6 + ((animationFrameTimer / 8) % 13);
+                else
+                    frame = (animationFrameTimer / 8) % 6;
+
+                Rectangle source = new Rectangle((frame % 6) * 32, (frame / 6) * 32, 32, 32);
+                Vector2 screen = Game1.GlobalToLocal(Game1.viewport, pennywise.Position);
+                Rectangle destination = new Rectangle((int)screen.X - 12, (int)screen.Y - 16, 48, 48);
+                e.SpriteBatch.Draw(animationTexture, destination, source, Color.White);
+            }
+            catch (Exception ex)
+            {
+                Monitor.Log("Couldn't draw Pennywise's custom animation: " + ex.Message, LogLevel.Warn);
+                animationTexture = null;
+            }
         }
 
         private Texture2D CreateBalloonTexture()
