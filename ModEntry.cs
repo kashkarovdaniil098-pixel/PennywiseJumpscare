@@ -114,7 +114,7 @@ namespace PennywiseJumpscare
                 return;
             }
 
-            // Start quietly and raise the encounter music smoothly to full volume over 10 seconds.
+            // Bring the encounter music up to full volume over 3 seconds.
             if (suspenseMusic != null)
             {
                 if (suspenseMusic.State != SoundState.Playing)
