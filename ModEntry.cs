@@ -14,6 +14,7 @@ namespace PennywiseJumpscare
 
         private NPC? pennywise;
         private Texture2D? balloonTexture;
+        private Texture2D? bloodDripTexture;
 
         private int appearanceTimer;
         private int encounterTimer;
@@ -24,6 +25,9 @@ namespace PennywiseJumpscare
         private int observationTimer;
         private int fleeTimer;
         private int stuckChecks;
+        private int effectTimer;
+        private int screenShakeX;
+        private int screenShakeY;
         private Vector2 lastPathPosition;
 
         private bool active;
@@ -39,6 +43,7 @@ namespace PennywiseJumpscare
             helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
             helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
             helper.Events.Display.RenderedWorld += OnRenderedWorld;
+            helper.Events.Display.RenderedHud += OnRenderedHud;
             helper.Events.GameLoop.ReturnedToTitle += OnReturnedToTitle;
 
             Monitor.Log("Pennywise AI loaded.", LogLevel.Info);
@@ -57,6 +62,15 @@ namespace PennywiseJumpscare
 
         private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
         {
+            // Undo the previous tiny camera offset before applying the next one.
+            if (screenShakeX != 0 || screenShakeY != 0)
+            {
+                Game1.viewport.X -= screenShakeX;
+                Game1.viewport.Y -= screenShakeY;
+                screenShakeX = 0;
+                screenShakeY = 0;
+            }
+
             if (!Context.IsWorldReady || Game1.eventUp || Game1.currentMinigame != null)
                 return;
 
@@ -103,6 +117,18 @@ namespace PennywiseJumpscare
                 pennywise.controller = null;
                 pennywise.Halt();
                 observationTimer--;
+
+                if (effectTimer > 0)
+                {
+                    effectTimer--;
+                    if (Game1.ticks % 4 == 0)
+                    {
+                        screenShakeX = random.Next(-2, 3);
+                        screenShakeY = random.Next(-1, 2);
+                        Game1.viewport.X += screenShakeX;
+                        Game1.viewport.Y += screenShakeY;
+                    }
+                }
 
                 if (observationTimer <= 0)
                 {
@@ -200,7 +226,9 @@ namespace PennywiseJumpscare
             observing = true;
             chasing = false;
             fleeing = false;
-            observationTimer = 60 * 20;
+            // The screen effect lasts for the full 10-second observation.
+            observationTimer = 60 * 10;
+            effectTimer = 60 * 10;
             encounterTimer = 60 * 30;
             attackCooldown = 0;
             pathTimer = 0;
@@ -400,6 +428,57 @@ namespace PennywiseJumpscare
             return texture;
         }
 
+        private void OnRenderedHud(object? sender, RenderedHudEventArgs e)
+        {
+            if (!active || effectTimer <= 0 || !Context.IsWorldReady)
+                return;
+
+            bloodDripTexture ??= CreateBloodDripTexture();
+
+            int elapsed = 60 * 10 - effectTimer;
+            int screenWidth = Game1.viewport.Width;
+            int screenHeight = Game1.viewport.Height;
+            Color tint = new Color(205, 12, 28, 205);
+
+            // A few translucent, stylized red streaks slide down the screen edges.
+            int[] xPositions = { screenWidth / 12, screenWidth / 3, screenWidth * 2 / 3, screenWidth * 11 / 12 };
+            int[] startY = { -35, -90, -15, -65 };
+            for (int i = 0; i < xPositions.Length; i++)
+            {
+                int y = (startY[i] + elapsed * (1 + i % 2)) % (screenHeight + 50);
+                e.SpriteBatch.Draw(
+                    bloodDripTexture,
+                    new Rectangle(xPositions[i], y, 12 + (i % 2) * 4, 42 + (i % 2) * 12),
+                    tint
+                );
+            }
+        }
+
+        private Texture2D CreateBloodDripTexture()
+        {
+            const int width = 16;
+            const int height = 48;
+            Texture2D texture = new Texture2D(Game1.graphics.GraphicsDevice, width, height);
+            Color[] pixels = new Color[width * height];
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float dx = (x - 7.5f) / 7f;
+                    float dy = (y - 10f) / 10f;
+                    bool roundedTop = y < 23 && dx * dx + dy * dy <= 1f;
+                    bool taperedTail = y >= 15 && y < 47 && Math.Abs(x - 7.5f) <= (47 - y) * 0.22f + 1.2f;
+                    pixels[y * width + x] = roundedTop || taperedTail
+                        ? new Color(255, 255, 255, 220)
+                        : Color.Transparent;
+                }
+            }
+
+            texture.SetData(pixels);
+            return texture;
+        }
+
         private void EndEncounter()
         {
             if (pennywise != null)
@@ -417,6 +496,7 @@ namespace PennywiseJumpscare
             fleeing = false;
             pathTimer = 0;
             stuckChecks = 0;
+            effectTimer = 0;
 
             appearanceTimer = 60 * 30;
             Monitor.Log("Pennywise fled and disappeared. Next appearance in 30 seconds.", LogLevel.Info);
@@ -440,10 +520,18 @@ namespace PennywiseJumpscare
             pathTimer = 0;
             observationTimer = 0;
             fleeTimer = 0;
+            effectTimer = 0;
+            screenShakeX = 0;
+            screenShakeY = 0;
             stuckChecks = 0;
 
             balloonTexture?.Dispose();
             balloonTexture = null;
+            bloodDripTexture?.Dispose();
+            bloodDripTexture = null;
+            effectTimer = 0;
+            screenShakeX = 0;
+            screenShakeY = 0;
         }
     }
 }
