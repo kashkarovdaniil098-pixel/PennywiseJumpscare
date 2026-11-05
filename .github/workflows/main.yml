@@ -1,5 +1,4 @@
-
-name: Build PennywiseJumpscare
+name: Build Pennywise Mod
 
 on:
   workflow_dispatch:
@@ -10,18 +9,37 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 6.0.x
+          dotnet-version: '6.0.x'
 
       - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-reference-assemblies@v1
 
-      - run: dotnet build PennywiseJumpscare.csproj -c Release
+      - name: Build SMAPI mod
+        run: dotnet build PennywiseJumpscare.csproj -c Release
+
+      - name: Assemble mod folders
+        run: |
+          mkdir -p dist/PennywiseJumpscare
+          mkdir -p "dist/[CP] Pennywise NPC"
+
+          cp manifest.json dist/PennywiseJumpscare/manifest.json
+
+          DLL=$(find bin/Release -type f -name 'PennywiseJumpscare.dll' | head -n 1)
+          test -n "$DLL"
+          cp "$DLL" dist/PennywiseJumpscare/
+
+          cp -R PennywiseNPC/. "dist/[CP] Pennywise NPC/"
+
+          cd dist
+          zip -r ../PennywiseMod.zip PennywiseJumpscare "[CP] Pennywise NPC"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: PennywiseJumpscare
-          path: bin/Release/
+          name: PennywiseMod
+          path: PennywiseMod.zip
+          if-no-files-found: error
