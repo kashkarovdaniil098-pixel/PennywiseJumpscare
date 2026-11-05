@@ -1,0 +1,11 @@
+{
+  "Name": "Pennywise NPC",
+  "Author": "Daniil",
+  "Version": "1.0.0",
+  "Description": "Pennywise as a living NPC",
+  "UniqueID": "Daniil.PennywiseNPC",
+  "MinimumApiVersion": "4.0.0",
+  "ContentPackFor": {
+    "UniqueID": "Pathoschild.ContentPatcher"
+  }
+}
