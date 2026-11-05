@@ -20,7 +20,9 @@ namespace PennywiseJumpscare
         private int encounterTimer;
         private int stalkingTimer;
         private int attackCooldown;
-        private int normalSpeed = 2;
+        private int pathTimer;
+
+        private int normalSpeed = -1;
 
         private bool active;
         private bool chasing;
@@ -36,18 +38,25 @@ namespace PennywiseJumpscare
             Monitor.Log("Pennywise AI loaded.", LogLevel.Info);
         }
 
-        private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
+        private void OnUpdateTicked(
+            object? sender,
+            UpdateTickedEventArgs e)
         {
-            if (!Context.IsWorldReady || Game1.eventUp ||
+            if (!Context.IsWorldReady ||
+                Game1.eventUp ||
                 Game1.currentMinigame != null)
                 return;
 
             pennywise ??=
-                Game1.getCharacterFromName("Daniil.PennywiseNPC_Pennywise")
+                Game1.getCharacterFromName(
+                    "Daniil.PennywiseNPC_Pennywise")
                 ?? Game1.getCharacterFromName("Pennywise");
 
             if (pennywise == null)
                 return;
+
+            if (normalSpeed < 0)
+                normalSpeed = Math.Max(1, pennywise.speed);
 
             if (appearanceTimer > 0)
                 appearanceTimer--;
@@ -79,6 +88,7 @@ namespace PennywiseJumpscare
                 Game1.player.Tile
             );
 
+            // Наблюдение за игроком
             if (!chasing)
             {
                 stalkingTimer++;
@@ -86,17 +96,23 @@ namespace PennywiseJumpscare
                 if (stalkingTimer >= 180)
                 {
                     chasing = true;
+                    pathTimer = 14;
+
                     pennywise.speed = Math.Max(
                         1,
                         (int)Math.Ceiling(normalSpeed * 1.2)
                     );
 
-                    Monitor.Log("Pennywise started chasing!", LogLevel.Info);
+                    Monitor.Log(
+                        "Pennywise started chasing!",
+                        LogLevel.Info
+                    );
                 }
 
                 return;
             }
 
+            // Атака игрока
             if (distance <= 1.5f)
             {
                 pennywise.controller = null;
@@ -107,18 +123,26 @@ namespace PennywiseJumpscare
                     Game1.player.takeDamage(10, true, null);
                     attackCooldown = 120;
 
-                    Monitor.Log("Pennywise attacked the player.", LogLevel.Info);
+                    Monitor.Log(
+                        "Pennywise attacked the player.",
+                        LogLevel.Info
+                    );
                 }
 
                 return;
             }
 
-            // Rebuild the path only when the NPC has no active controller.
-            if (pennywise.controller == null)
+            // Регулярное обновление маршрута
+            if (++pathTimer >= 15)
+            {
+                pathTimer = 0;
                 FollowPlayer();
+            }
         }
 
-        private bool IsPassable(GameLocation location, Vector2 tile)
+        private bool IsPassable(
+            GameLocation location,
+            Vector2 tile)
         {
             return location.isTileOnMap(tile) &&
                    location.isTilePassable(tile);
@@ -139,12 +163,10 @@ namespace PennywiseJumpscare
                 if (Math.Abs(dx) + Math.Abs(dy) < 4)
                     continue;
 
-                Vector2 tile = playerTile + new Vector2(dx, dy);
+                Vector2 tile = playerTile +
+                    new Vector2(dx, dy);
 
                 if (!IsPassable(location, tile))
-                    continue;
-
-                if (location.characters.Contains(pennywise))
                     continue;
 
                 spawn = tile;
@@ -158,20 +180,28 @@ namespace PennywiseJumpscare
             }
 
             pennywise!.controller = null;
+
             pennywise.currentLocation?.characters.Remove(pennywise);
+
             pennywise.currentLocation = location;
             pennywise.setTileLocation(spawn.Value);
+
             location.addCharacter(pennywise);
 
             pennywise.speed = normalSpeed;
 
             active = true;
             chasing = false;
+
             stalkingTimer = 0;
+            pathTimer = 0;
             encounterTimer = 60 * 35;
             attackCooldown = 0;
 
-            Monitor.Log("Pennywise appeared.", LogLevel.Info);
+            Monitor.Log(
+                "Pennywise appeared.",
+                LogLevel.Info
+            );
         }
 
         private void FollowPlayer()
@@ -229,6 +259,7 @@ namespace PennywiseJumpscare
                             "Pennywise path created: " + destination,
                             LogLevel.Trace
                         );
+
                         return;
                     }
                 }
@@ -242,7 +273,7 @@ namespace PennywiseJumpscare
             }
 
             Monitor.Log(
-                "Pennywise couldn't find a path to the player.",
+                "Pennywise couldn't find a path.",
                 LogLevel.Warn
             );
         }
@@ -251,7 +282,8 @@ namespace PennywiseJumpscare
             object? sender,
             RenderedWorldEventArgs e)
         {
-            if (!active || pennywise == null ||
+            if (!active ||
+                pennywise == null ||
                 pennywise.currentLocation != Game1.currentLocation)
                 return;
 
@@ -304,17 +336,24 @@ namespace PennywiseJumpscare
                 pennywise.controller = null;
                 pennywise.Halt();
 
-                if (normalSpeed > 0)
-                    pennywise.speed = normalSpeed;
+                pennywise.speed = normalSpeed;
 
-                pennywise.currentLocation?.characters.Remove(pennywise);
+                pennywise.currentLocation?.characters.Remove(
+                    pennywise
+                );
+
                 pennywise.currentLocation = null;
             }
 
             active = false;
             chasing = false;
 
-            Monitor.Log("Pennywise encounter ended.", LogLevel.Info);
+            pathTimer = 0;
+
+            Monitor.Log(
+                "Pennywise encounter ended.",
+                LogLevel.Info
+            );
 
             ResetAppearanceTimer();
         }
@@ -334,13 +373,19 @@ namespace PennywiseJumpscare
             if (pennywise != null)
             {
                 pennywise.controller = null;
-                pennywise.currentLocation?.characters.Remove(pennywise);
+
+                pennywise.currentLocation?.characters.Remove(
+                    pennywise
+                );
             }
 
             active = false;
             chasing = false;
+
             pennywise = null;
-            normalSpeed = 2;
+            normalSpeed = -1;
+
+            pathTimer = 0;
 
             balloonTexture?.Dispose();
             balloonTexture = null;
