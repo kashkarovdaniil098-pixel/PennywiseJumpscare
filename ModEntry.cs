@@ -782,7 +782,6 @@ namespace PennywiseJumpscare
             pathTimer = 0;
             observationTimer = 0;
             fleeTimer = 0;
-            effectTimer = 0;
             screenShakeX = 0;
             screenShakeY = 0;
             stuckChecks = 0;
@@ -791,7 +790,6 @@ namespace PennywiseJumpscare
             balloonTexture = null;
             jumpscareTexture?.Dispose();
             jumpscareTexture = null;
-            effectTimer = 0;
             silhouetteTimer = 0;
             jumpscareFaceTimer = 0;
             screenShakeX = 0;
