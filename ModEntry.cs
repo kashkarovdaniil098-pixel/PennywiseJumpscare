@@ -105,7 +105,7 @@ namespace PennywiseJumpscare
                 }
 
                 normalSpeed = Math.Max(1, pennywise.speed);
-                normalScale = pennywise.scale;
+                normalScale = pennywise.Scale;
                 missingNpcLogged = false;
                 Monitor.Log("Pennywise NPC found.", LogLevel.Info);
             }
@@ -749,7 +749,7 @@ namespace PennywiseJumpscare
                 pennywise.controller = null;
                 pennywise.Halt();
                 pennywise.speed = normalSpeed;
-                pennywise.scale = normalScale;
+                pennywise.Scale = normalScale;
                 pennywise.currentLocation?.characters.Remove(pennywise);
                 pennywise.currentLocation = null;
             }
