@@ -17,16 +17,21 @@ namespace PennywiseJumpscare
         public override void Entry(IModHelper helper)
         {
             ResetTimer();
+
             helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
-            Monitor.Log("Pennywise Jumpscare loaded.", LogLevel.Info);
+
+            Monitor.Log("PennywiseJumpscare loaded.", LogLevel.Info);
         }
 
         private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
         {
-            if (!Context.IsWorldReady || Game1.eventUp || Game1.currentMinigame != null)
+            if (!Context.IsWorldReady ||
+                Game1.eventUp ||
+                Game1.currentMinigame != null)
                 return;
 
-            NPC? pennywise = Game1.getCharacterFromName("Daniil.PennywiseNPC_Pennywise")
+            NPC? pennywise =
+                Game1.getCharacterFromName("Daniil.PennywiseNPC_Pennywise")
                 ?? Game1.getCharacterFromName("Pennywise");
 
             if (hiding)
@@ -34,9 +39,12 @@ namespace PennywiseJumpscare
                 if (--eventTicksLeft <= 0)
                 {
                     hiding = false;
+
                     pennywise?.setTileLocation(new Vector2(47, 87));
+
                     ResetTimer();
                 }
+
                 return;
             }
 
@@ -50,24 +58,28 @@ namespace PennywiseJumpscare
             }
 
             Vector2 playerTile = Game1.player.Tile;
+
             Vector2 destination = playerTile + new Vector2(
                 random.Next(-5, 6),
                 random.Next(-5, 6)
             );
 
-            xTile.Dimensions.Location tile = new xTile.Dimensions.Location(
-                (int)destination.X,
-                (int)destination.Y
-            );
-
             if (!Game1.currentLocation.isTileOnMap(destination))
+            {
+                ResetTimer();
+                return;
+            }
 
             pennywise.currentLocation?.characters.Remove(pennywise);
+
             pennywise.currentLocation = Game1.currentLocation;
+
             pennywise.setTileLocation(destination);
+
             Game1.currentLocation.addCharacter(pennywise);
 
             hiding = true;
+
             eventTicksLeft = 60 * 8;
 
             Monitor.Log("Pennywise appeared nearby.", LogLevel.Info);
@@ -75,7 +87,10 @@ namespace PennywiseJumpscare
 
         private void ResetTimer()
         {
-            ticksUntilNextEvent = random.Next(60 * 60 * 60, 60 * 60 * 180);
+            ticksUntilNextEvent = random.Next(
+                60 * 60 * 60,
+                60 * 60 * 180
+            );
         }
     }
 }
