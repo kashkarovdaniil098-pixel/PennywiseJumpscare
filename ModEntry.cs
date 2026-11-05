@@ -80,11 +80,13 @@ namespace PennywiseJumpscare
                 Monitor.Log("Pennywise NPC found.", LogLevel.Info);
             }
 
+            // Count the 50-second cycle from one appearance to the next,
+            // including the time spent observing, chasing, and fleeing.
+            if (appearanceTimer > 0)
+                appearanceTimer--;
+
             if (!active)
             {
-                if (appearanceTimer > 0)
-                    appearanceTimer--;
-
                 if (appearanceTimer <= 0)
                     TryAppear();
 
@@ -201,6 +203,7 @@ namespace PennywiseJumpscare
             fleeing = false;
             observationTimer = 60 * 3;
             encounterTimer = 60 * 35;
+            appearanceTimer = 60 * 50;
             attackCooldown = 0;
             pathTimer = 0;
             stuckChecks = 0;
@@ -417,13 +420,7 @@ namespace PennywiseJumpscare
             pathTimer = 0;
             stuckChecks = 0;
 
-            Monitor.Log("Pennywise fled and disappeared. Next appearance in 50 seconds.", LogLevel.Info);
-            ResetAppearanceTimer();
-        }
-
-        private void ResetAppearanceTimer()
-        {
-            appearanceTimer = 60 * 50;
+            Monitor.Log("Pennywise fled and disappeared. The 50-second appearance cycle continues.", LogLevel.Info);
         }
 
         private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
