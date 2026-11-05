@@ -440,25 +440,27 @@ namespace PennywiseJumpscare
 
             bloodDripTexture ??= CreateBloodDripTexture();
 
-            int elapsed = 60 * 10 - effectTimer;
             int screenWidth = Game1.viewport.Width;
-            int screenHeight = Game1.viewport.Height;
-            Color tint = new Color(205, 12, 28, 205);
+            Color band = new Color(150, 0, 18, 245);
+            Color liquid = new Color(185, 0, 24, 235);
 
-            // Continuous red band along the top edge.
-            e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle(0, 0, screenWidth, 16), new Color(155, 0, 18, 235));
+            // The upper edge is one continuous strip. Every stream overlaps it,
+            // so the liquid always remains visibly attached to the strip.
+            e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle(0, 0, screenWidth, 20), band);
 
-            // Many larger drips flow down from the band, with staggered phases.
-            const int dripCount = 32;
-            for (int i = 0; i < dripCount; i++)
+            const int streamCount = 38;
+            for (int i = 0; i < streamCount; i++)
             {
-                int x = (i * screenWidth / dripCount) + (i % 3) * 5;
-                int speed = 2 + (i % 4);
-                int phase = (i * 37) % (screenHeight + 150);
-                int y = (phase + elapsed * speed) % (screenHeight + 100) - 100;
-                int width = 24 + (i % 3) * 5;
-                int height = 88 + (i % 4) * 14;
-                e.SpriteBatch.Draw(bloodDripTexture, new Rectangle(x, y, width, height), tint);
+                int x = i * screenWidth / streamCount;
+                int width = 19 + (i % 4) * 6;
+                int height = 105 + (i % 7) * 22;
+
+                // Anchor every stream at the top; vary its length, not its position.
+                e.SpriteBatch.Draw(
+                    bloodDripTexture,
+                    new Rectangle(x, 7, width, height),
+                    liquid
+                );
             }
         }
 
