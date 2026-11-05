@@ -18,6 +18,7 @@ namespace PennywiseJumpscare
         private Texture2D? balloonTexture;
         private Texture2D? jumpscareTexture;
         private Texture2D? animationTexture;
+        private bool customSpriteApplied;
         private int animationFrameTimer;
         private int attackAnimationTimer;
         private SoundEffect? suspenseSound;
@@ -109,6 +110,7 @@ namespace PennywiseJumpscare
 
                 normalSpeed = Math.Max(1, pennywise.speed);
                 normalScale = pennywise.Scale;
+                ApplyCustomPennywiseSprite();
                 missingNpcLogged = false;
                 Monitor.Log("Pennywise NPC found.", LogLevel.Info);
             }
@@ -177,6 +179,7 @@ namespace PennywiseJumpscare
             if (attackAnimationTimer > 0)
                 attackAnimationTimer--;
             animationFrameTimer++;
+            UpdateCustomPennywiseFrame();
 
             if (observing)
             {
@@ -511,8 +514,6 @@ namespace PennywiseJumpscare
 
         private void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
         {
-            DrawPennywiseAnimation(e);
-
             if (!balloonVisible || balloonLocation != Game1.currentLocation)
                 return;
 
@@ -525,40 +526,54 @@ namespace PennywiseJumpscare
             e.SpriteBatch.Draw(balloonTexture, position, Color.White);
         }
 
-        private void DrawPennywiseAnimation(RenderedWorldEventArgs e)
+        private void ApplyCustomPennywiseSprite()
         {
-            if (!active || pennywise == null || pennywise.currentLocation != Game1.currentLocation)
+            if (pennywise == null || customSpriteApplied)
                 return;
 
             try
             {
-                if (animationTexture == null)
+                string path = Path.Combine(Helper.DirectoryPath, "animations.png");
+                if (!File.Exists(path))
                 {
-                    string path = Path.Combine(Helper.DirectoryPath, "animations.png");
-                    if (!File.Exists(path))
-                        return;
-                    using (FileStream stream = File.OpenRead(path))
-                        animationTexture = Texture2D.FromStream(Game1.graphics.GraphicsDevice, stream);
+                    Monitor.Log("animations.png is missing from the Pennywise mod folder.", LogLevel.Error);
+                    return;
                 }
 
-                int frame;
-                if (attackAnimationTimer > 0)
-                    frame = 19 + ((30 - attackAnimationTimer) / 6 % 5);
-                else if (fleeing)
-                    frame = 6 + ((animationFrameTimer / 8) % 13);
-                else
-                    frame = (animationFrameTimer / 8) % 6;
+                using (FileStream stream = File.OpenRead(path))
+                    animationTexture = Texture2D.FromStream(Game1.graphics.GraphicsDevice, stream);
 
-                Rectangle source = new Rectangle((frame % 6) * 32, (frame / 6) * 32, 32, 32);
-                Vector2 screen = Game1.GlobalToLocal(Game1.viewport, pennywise.Position);
-                Rectangle destination = new Rectangle((int)screen.X - 12, (int)screen.Y - 16, 48, 48);
-                e.SpriteBatch.Draw(animationTexture, destination, source, Color.White);
+                // Replace the NPC's actual texture. Do not draw a tiny second sprite over the old NPC.
+                pennywise.Sprite.Texture = animationTexture;
+                pennywise.Sprite.SpriteWidth = 32;
+                pennywise.Sprite.SpriteHeight = 32;
+                pennywise.Sprite.currentFrame = 0;
+                pennywise.Sprite.UpdateSourceRect();
+                customSpriteApplied = true;
+                Monitor.Log("Applied full-size Pennywise animation sheet (192x128, 32x32 frames).", LogLevel.Info);
             }
             catch (Exception ex)
             {
-                Monitor.Log("Couldn't draw Pennywise's custom animation: " + ex.Message, LogLevel.Warn);
+                Monitor.Log("Couldn't apply Pennywise's custom sprite: " + ex, LogLevel.Error);
                 animationTexture = null;
             }
+        }
+
+        private void UpdateCustomPennywiseFrame()
+        {
+            if (!customSpriteApplied || pennywise == null)
+                return;
+
+            int frame;
+            if (attackAnimationTimer > 0)
+                frame = 19 + ((30 - attackAnimationTimer) / 6 % 5);
+            else if (fleeing)
+                frame = 6 + ((animationFrameTimer / 8) % 13);
+            else
+                frame = (animationFrameTimer / 8) % 6;
+
+            pennywise.Sprite.currentFrame = frame;
+            pennywise.Sprite.UpdateSourceRect();
         }
 
         private Texture2D CreateBalloonTexture()
