@@ -200,8 +200,8 @@ namespace PennywiseJumpscare
             observing = true;
             chasing = false;
             fleeing = false;
-            observationTimer = 60 * 30;
-            encounterTimer = 60 * 40;
+            observationTimer = 60 * 20;
+            encounterTimer = 60 * 30;
             attackCooldown = 0;
             pathTimer = 0;
             stuckChecks = 0;
