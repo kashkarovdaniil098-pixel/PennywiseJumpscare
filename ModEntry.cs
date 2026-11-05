@@ -258,9 +258,9 @@ namespace PennywiseJumpscare
             observing = true;
             chasing = false;
             fleeing = false;
-            // The screen effect lasts for the full 10-second observation.
+            // The glossy blood overlay appears briefly, then fades away.
             observationTimer = 60 * 10;
-            effectTimer = 60 * 10;
+            effectTimer = 60 * 3;
             encounterTimer = 60 * 30;
             attackCooldown = 0;
             pathTimer = 0;
@@ -471,11 +471,12 @@ namespace PennywiseJumpscare
                 bloodDripTexture = CreateBloodDripTexture(bloodFrame++);
                 bloodRefreshTimer = 0;
             }
-            // Stretch the drip layer over the full screen so the streams reach the bottom edge.
+            // Keep the effect vivid at first, then smoothly dissolve it during its final second.
+            float bloodOpacity = Math.Min(1f, effectTimer / 60f);
             e.SpriteBatch.Draw(
                 bloodDripTexture,
                 new Rectangle(0, 0, Game1.viewport.Width, Game1.viewport.Height),
-                Color.White
+                Color.White * bloodOpacity
             );
         }
 
@@ -487,98 +488,85 @@ namespace PennywiseJumpscare
             Color[] pixels = new Color[width * height];
             Random textureRandom = new Random(7319);
 
-            // A glossy, uneven upper pool with a dark underside and tiny surface highlights.
-            for (int x = 0; x < width; x++)
+            // A small number of short, fine trails. Each one ends in a rounded,
+            // heavier drop instead of becoming a long, uniform stripe.
+            for (int stream = 0; stream < 17; stream++)
             {
-                int edge = 36 + (int)(5 * Math.Sin(x * 0.071)) + textureRandom.Next(0, 7);
-                for (int y = 0; y <= edge; y++)
-                {
-                    float shade = y / (float)Math.Max(1, edge);
-                    int red = 105 + (int)(75 * (1f - shade));
-                    int green = (int)(5 + 5 * (1f - shade));
-                    int blue = 12 + (int)(10 * (1f - shade));
-                    byte alpha = (byte)(238 - shade * 18);
-                    if (y == edge - 2 && x % 17 < 5)
-                        pixels[y * width + x] = new Color(235, 65, 72, 220);
-                    else
-                        pixels[y * width + x] = new Color(red, green, blue, alpha);
-                }
-            }
+                int originX = textureRandom.Next(8, width - 8);
+                int length = textureRandom.Next(48, 142);
+                float threadWidth = 1.0f + (float)textureRandom.NextDouble() * 1.25f;
+                float sway = (float)textureRandom.NextDouble() * 2.4f;
+                float phase = (float)textureRandom.NextDouble() * 6.28f;
+                int startY = -textureRandom.Next(0, 24);
+                int tipY = Math.Min(height - 18, startY + length + (frame % 12) * 1.6f);
+                float tipXf = originX + (float)Math.Sin((tipY - startY) * 0.025f + phase) * sway;
+                int tipX = Math.Max(10, Math.Min(width - 11, (int)tipXf));
 
-            // Rounded, irregular streams. Their starting points advance each frame,
-            // making the glossy drips visibly travel down instead of remaining flat.
-            for (int stream = 0; stream < 25; stream++)
-            {
-                int originX = textureRandom.Next(0, width);
-                int maxLength = textureRandom.Next(190, 430);
-                int phase = textureRandom.Next(0, 90);
-                int startY = -((frame * 2 + phase) % 72);
-                float baseWidth = textureRandom.Next(5, 9);
-                float wave = (float)textureRandom.NextDouble() * 6.28f;
-                float drift = 0.7f + (float)textureRandom.NextDouble() * 1.8f;
-                int endY = Math.Min(height - 4, startY + maxLength);
-
-                for (int y = Math.Max(0, startY); y <= endY; y++)
+                // Hair-thin glossy thread leading into the main droplet.
+                for (int y = Math.Max(0, startY); y < tipY; y++)
                 {
-                    float localY = y - startY;
-                    float taper = 0.78f + 0.22f * (float)Math.Sin(Math.Min(1f, localY / maxLength) * Math.PI);
+                    float progress = (y - startY) / (float)Math.Max(1, tipY - startY);
                     float center = originX
-                        + (float)Math.Sin((localY + frame * 0.8f) * 0.045f + wave) * drift
-                        + (float)Math.Sin(localY * 0.018f + wave) * 1.5f;
-                    int half = Math.Max(2, (int)(baseWidth * taper));
-                    int cx = (int)center;
+                        + (float)Math.Sin((y - startY) * 0.025f + phase) * sway;
+                    float widthAtY = threadWidth * (0.72f + 0.28f * progress);
+                    int left = Math.Max(0, (int)Math.Floor(center - widthAtY - 1));
+                    int right = Math.Min(width - 1, (int)Math.Ceiling(center + widthAtY + 1));
 
-                    for (int x = Math.Max(0, cx - half - 1); x <= Math.Min(width - 1, cx + half + 1); x++)
+                    for (int x = left; x <= right; x++)
                     {
-                        int dx = x - cx;
-                        float across = Math.Abs(dx) / (float)(half + 1);
-                        if (across > 1f)
+                        float across = Math.Abs(x - center) / widthAtY;
+                        if (across > 1.35f)
                             continue;
 
-                        // Dark rim, saturated center, and a narrow wet highlight create depth.
-                        float edgeShade = 1f - across * 0.62f;
-                        float grain = 0.94f + 0.06f * (float)Math.Sin(x * 0.37 + y * 0.21 + stream);
-                        int red = (int)(150 * edgeShade * grain + 35);
-                        int green = dx == -half / 2 ? 26 : 2;
-                        int blue = (int)(18 * edgeShade);
-                        byte alpha = (byte)(218 - across * 24);
+                        float coverage = Math.Max(0f, Math.Min(1f, (1.35f - across) / 0.45f));
+                        byte alpha = (byte)(coverage * 218);
+                        Color color;
+                        if (x < center - widthAtY * 0.25f)
+                            color = new Color(255, 92, 98, alpha);
+                        else if (across > 0.82f)
+                            color = new Color(75, 0, 9, alpha);
+                        else
+                            color = new Color(174, 3, 20, alpha);
 
-                        if (dx == -Math.Max(1, half / 2))
-                        {
-                            red = 238;
-                            green = 70;
-                            blue = 78;
-                            alpha = 205;
-                        }
-                        else if (Math.Abs(dx) == half)
-                        {
-                            red = 70;
-                            green = 0;
-                            blue = 8;
-                            alpha = 235;
-                        }
-
-                        pixels[y * width + x] = new Color(red, green, blue, alpha);
+                        pixels[y * width + x] = color;
                     }
                 }
 
-                // Bulb-shaped drop at the moving tip, with a bright upper glint.
-                int tipX = Math.Max(3, Math.Min(width - 4, (int)(originX + Math.Sin((endY - startY + frame * 0.8f) * 0.045f + wave) * drift + Math.Sin((endY - startY) * 0.018f + wave) * 1.5f)));
-                int tipY = Math.Max(2, Math.Min(height - 3, endY));
-                int radius = Math.Max(3, (int)(baseWidth * 0.72f));
-                for (int y = tipY - radius; y <= tipY + radius; y++)
+                // Rounded teardrop with a dark, refractive edge and bright wet highlight.
+                float radiusX = 4.8f + (float)textureRandom.NextDouble() * 3.0f;
+                float radiusY = radiusX * (1.15f + (float)textureRandom.NextDouble() * 0.25f);
+                int minX = Math.Max(0, (int)(tipX - radiusX - 2));
+                int maxX = Math.Min(width - 1, (int)(tipX + radiusX + 2));
+                int minY = Math.Max(0, (int)(tipY - radiusY - 2));
+                int maxY = Math.Min(height - 1, (int)(tipY + radiusY + 2));
+
+                for (int y = minY; y <= maxY; y++)
                 {
-                    for (int x = tipX - radius; x <= tipX + radius; x++)
+                    for (int x = minX; x <= maxX; x++)
                     {
-                        if (x < 0 || x >= width || y < 0 || y >= height)
+                        float nx = (x - tipX) / radiusX;
+                        float ny = (y - tipY) / radiusY;
+                        float distance = (float)Math.Sqrt(nx * nx + ny * ny);
+                        if (distance > 1.18f)
                             continue;
-                        float d = (float)Math.Sqrt((x - tipX) * (x - tipX) + (y - tipY) * (y - tipY) * 0.7f);
-                        if (d > radius)
-                            continue;
-                        Color drop = d < radius * 0.35f
-                            ? new Color(235, 55, 65, 230)
-                            : new Color(125, 0, 12, 238);
-                        pixels[y * width + x] = drop;
+
+                        float edge = Math.Max(0f, Math.Min(1f, (1.18f - distance) / 0.18f));
+                        float centerGlow = Math.Max(0f, 1f - (float)Math.Sqrt(nx * nx * 0.55f + ny * ny * 0.7f));
+                        int red = (int)(82 + 105 * centerGlow);
+                        int green = (int)(1 + 8 * centerGlow);
+                        int blue = (int)(9 + 12 * centerGlow);
+                        byte alpha = (byte)(edge * 238);
+                        Color dropColor = new Color(red, green, blue, alpha);
+
+                        // Narrow specular streak on the upper-left side of the drop.
+                        float highlightX = (x - (tipX - radiusX * 0.34f)) / (radiusX * 0.19f);
+                        float highlightY = (y - (tipY - radiusY * 0.34f)) / (radiusY * 0.34f);
+                        if (highlightX * highlightX + highlightY * highlightY < 1f)
+                            dropColor = new Color(255, 166, 169, (byte)(edge * 225));
+                        else if (distance > 0.83f)
+                            dropColor = new Color(55, 0, 8, alpha);
+
+                        pixels[y * width + x] = dropColor;
                     }
                 }
             }
