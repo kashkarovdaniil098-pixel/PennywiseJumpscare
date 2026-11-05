@@ -544,9 +544,7 @@ namespace PennywiseJumpscare
                     animationTexture = Texture2D.FromStream(Game1.graphics.GraphicsDevice, stream);
 
                 // Replace the NPC's actual texture. Do not draw a tiny second sprite over the old NPC.
-                pennywise.Sprite.Texture = animationTexture;
-                pennywise.Sprite.SpriteWidth = 32;
-                pennywise.Sprite.SpriteHeight = 32;
+                pennywise.Sprite = new AnimatedSprite(animationTexture, 0, 32, 32);
                 pennywise.Sprite.currentFrame = 0;
                 pennywise.Sprite.UpdateSourceRect();
                 customSpriteApplied = true;
