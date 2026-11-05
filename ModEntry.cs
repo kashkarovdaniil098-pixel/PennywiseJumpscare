@@ -498,7 +498,7 @@ namespace PennywiseJumpscare
                 float sway = (float)textureRandom.NextDouble() * 2.4f;
                 float phase = (float)textureRandom.NextDouble() * 6.28f;
                 int startY = -textureRandom.Next(0, 24);
-                int tipY = Math.Min(height - 18, startY + length + (frame % 12) * 1.6f);
+                int tipY = Math.Min(height - 18, startY + length + (int)((frame % 12) * 1.6f));
                 float tipXf = originX + (float)Math.Sin((tipY - startY) * 0.025f + phase) * sway;
                 int tipX = Math.Max(10, Math.Min(width - 11, (int)tipXf));
 
@@ -522,11 +522,11 @@ namespace PennywiseJumpscare
                         byte alpha = (byte)(coverage * 218);
                         Color color;
                         if (x < center - widthAtY * 0.25f)
-                            color = new Color(255, 92, 98, alpha);
+                            color = new Color(255, 92, 98, (int)alpha);
                         else if (across > 0.82f)
-                            color = new Color(75, 0, 9, alpha);
+                            color = new Color(75, 0, 9, (int)alpha);
                         else
-                            color = new Color(174, 3, 20, alpha);
+                            color = new Color(174, 3, 20, (int)alpha);
 
                         pixels[y * width + x] = color;
                     }
@@ -556,15 +556,15 @@ namespace PennywiseJumpscare
                         int green = (int)(1 + 8 * centerGlow);
                         int blue = (int)(9 + 12 * centerGlow);
                         byte alpha = (byte)(edge * 238);
-                        Color dropColor = new Color(red, green, blue, alpha);
+                        Color dropColor = new Color(red, green, blue, (int)alpha);
 
                         // Narrow specular streak on the upper-left side of the drop.
                         float highlightX = (x - (tipX - radiusX * 0.34f)) / (radiusX * 0.19f);
                         float highlightY = (y - (tipY - radiusY * 0.34f)) / (radiusY * 0.34f);
                         if (highlightX * highlightX + highlightY * highlightY < 1f)
-                            dropColor = new Color(255, 166, 169, (byte)(edge * 225));
+                            dropColor = new Color(255, 166, 169, (int)(edge * 225));
                         else if (distance > 0.83f)
-                            dropColor = new Color(55, 0, 8, alpha);
+                            dropColor = new Color(55, 0, 8, (int)alpha);
 
                         pixels[y * width + x] = dropColor;
                     }
