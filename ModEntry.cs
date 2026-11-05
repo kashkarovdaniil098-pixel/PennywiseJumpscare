@@ -60,11 +60,7 @@ namespace PennywiseJumpscare
                 (int)destination.Y
             );
 
-            if (!Game1.currentLocation.isTileOnMap(tile))
-            {
-                ResetTimer();
-                return;
-            }
+            if (!Game1.currentLocation.isTileOnMap(destination))
 
             pennywise.currentLocation?.characters.Remove(pennywise);
             pennywise.currentLocation = Game1.currentLocation;
