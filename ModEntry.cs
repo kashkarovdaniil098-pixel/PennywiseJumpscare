@@ -700,6 +700,9 @@ namespace PennywiseJumpscare
                     using (FileStream stream = File.OpenRead(musicPath))
                         suspenseSound = SoundEffect.FromStream(stream);
                     suspenseMusic = suspenseSound.CreateInstance();
+                    // Keep the encounter track looping inside the audio engine.
+                    // Restarting it manually from UpdateTicked can cause an audible hitch.
+                    suspenseMusic.IsLooped = true;
                     suspenseMusic.Volume = 0.35f;
                 }
 
