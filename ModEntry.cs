@@ -31,6 +31,9 @@ namespace PennywiseJumpscare
         private int stuckChecks;
         private int effectTimer;
         private int musicRampTimer;
+        private float originalMusicVolume = -1f;
+        private int bloodFrame;
+        private int bloodRefreshTimer;
         private int screenShakeX;
         private int screenShakeY;
         private Vector2 lastPathPosition;
@@ -118,7 +121,16 @@ namespace PennywiseJumpscare
                     suspenseMusic.Play();
                 if (musicRampTimer < 600)
                     musicRampTimer++;
-                suspenseMusic.Volume = Math.Min(1f, 0.02f + (musicRampTimer / 600f) * 0.98f);
+                float musicBlend = Math.Min(1f, musicRampTimer / 600f);
+                suspenseMusic.Volume = 0.02f + musicBlend * 0.98f;
+
+                // Fade the game's current music down as Pennywise's track rises.
+                if (originalMusicVolume >= 0f)
+                {
+                    float gameMusicVolume = originalMusicVolume * (1f - musicBlend);
+                    Game1.musicPlayerVolume = gameMusicVolume;
+                    Game1.musicCategory.SetVolume(gameMusicVolume);
+                }
             }
 
             if (pennywise.currentLocation != Game1.currentLocation)
@@ -237,8 +249,11 @@ namespace PennywiseJumpscare
             location.addCharacter(pennywise);
             pennywise.speed = Math.Max(1, normalSpeed);
 
+            originalMusicVolume = Game1.musicPlayerVolume;
             active = true;
             musicRampTimer = 0;
+            bloodFrame = 0;
+            bloodRefreshTimer = 0;
             StartSuspenseMusic();
             observing = true;
             chasing = false;
@@ -450,7 +465,12 @@ namespace PennywiseJumpscare
             if (!active || effectTimer <= 0 || !Context.IsWorldReady)
                 return;
 
-            bloodDripTexture ??= CreateBloodDripTexture();
+            if (bloodDripTexture == null || ++bloodRefreshTimer >= 4)
+            {
+                bloodDripTexture?.Dispose();
+                bloodDripTexture = CreateBloodDripTexture(bloodFrame++);
+                bloodRefreshTimer = 0;
+            }
             e.SpriteBatch.Draw(
                 bloodDripTexture,
                 new Rectangle(0, 0, Game1.viewport.Width, 235),
@@ -458,7 +478,7 @@ namespace PennywiseJumpscare
             );
         }
 
-        private Texture2D CreateBloodDripTexture()
+        private Texture2D CreateBloodDripTexture(int frame)
         {
             const int width = 512;
             const int height = 235;
@@ -466,62 +486,100 @@ namespace PennywiseJumpscare
             Color[] pixels = new Color[width * height];
             Random textureRandom = new Random(7319);
 
-            // Uneven continuous upper band with a shaded lower edge.
-            for (int y = 0; y < 25; y++)
+            // A glossy, uneven upper pool with a dark underside and tiny surface highlights.
+            for (int x = 0; x < width; x++)
             {
-                for (int x = 0; x < width; x++)
+                int edge = 19 + (int)(3 * Math.Sin(x * 0.071)) + textureRandom.Next(0, 5);
+                for (int y = 0; y <= edge; y++)
                 {
-                    int edge = 15 + (int)(2 * Math.Sin(x * 0.11)) + textureRandom.Next(0, 4);
-                    if (y <= edge)
-                        pixels[y * width + x] = y > edge - 3
-                            ? new Color(75, 0, 8, 235)
-                            : new Color(145 + textureRandom.Next(0, 35), 0, 14, 245);
+                    float shade = y / (float)Math.Max(1, edge);
+                    int red = 105 + (int)(75 * (1f - shade));
+                    int green = (int)(5 + 5 * (1f - shade));
+                    int blue = 12 + (int)(10 * (1f - shade));
+                    byte alpha = (byte)(238 - shade * 18);
+                    if (y == edge - 2 && x % 17 < 5)
+                        pixels[y * width + x] = new Color(235, 65, 72, 220);
+                    else
+                        pixels[y * width + x] = new Color(red, green, blue, alpha);
                 }
             }
 
-            // Irregular tapered streams with darker edges and small wet highlights.
-            for (int stream = 0; stream < 44; stream++)
+            // Rounded, irregular streams. Their starting points advance each frame,
+            // making the glossy drips visibly travel down instead of remaining flat.
+            for (int stream = 0; stream < 39; stream++)
             {
                 int originX = textureRandom.Next(0, width);
-                int length = textureRandom.Next(35, 218);
+                int maxLength = textureRandom.Next(62, 225);
+                int phase = textureRandom.Next(0, 90);
+                int startY = -((frame * 2 + phase) % 72);
                 float baseWidth = textureRandom.Next(2, 8);
-                float phase = (float)textureRandom.NextDouble() * 6.28f;
-                float drift = (float)(textureRandom.NextDouble() * 1.8 + 0.3);
+                float wave = (float)textureRandom.NextDouble() * 6.28f;
+                float drift = 0.7f + (float)textureRandom.NextDouble() * 1.8f;
+                int endY = Math.Min(height - 4, startY + maxLength);
 
-                for (int y = 12; y < length; y++)
+                for (int y = Math.Max(0, startY); y <= endY; y++)
                 {
-                    float taper = Math.Max(0.7f, 1f - (float)y / (length + 8) * 0.72f);
-                    float center = originX + (float)Math.Sin(y * 0.055f + phase) * drift
-                        + (float)Math.Sin(y * 0.017f + phase) * 1.6f;
-                    int half = Math.Max(1, (int)(baseWidth * taper));
+                    float localY = y - startY;
+                    float taper = 0.78f + 0.22f * (float)Math.Sin(Math.Min(1f, localY / maxLength) * Math.PI);
+                    float center = originX
+                        + (float)Math.Sin((localY + frame * 0.8f) * 0.045f + wave) * drift
+                        + (float)Math.Sin(localY * 0.018f + wave) * 1.5f;
+                    int half = Math.Max(2, (int)(baseWidth * taper));
                     int cx = (int)center;
 
-                    for (int x = Math.Max(0, cx - half - 2); x <= Math.Min(width - 1, cx + half + 2); x++)
+                    for (int x = Math.Max(0, cx - half - 1); x <= Math.Min(width - 1, cx + half + 1); x++)
                     {
-                        int distance = Math.Abs(x - cx);
-                        if (distance > half + 1)
+                        int dx = x - cx;
+                        float across = Math.Abs(dx) / (float)(half + 1);
+                        if (across > 1f)
                             continue;
 
-                        Color color;
-                        if (distance == half + 1)
-                            color = new Color(45, 0, 5, 190);
-                        else if (distance == half)
-                            color = new Color(105, 0, 12, 235);
-                        else if (distance == 0 && stream % 3 == 0)
-                            color = new Color(220, 45, 55, 205);
-                        else
-                            color = new Color(165 + textureRandom.Next(0, 35), 0, 18, 225);
+                        // Dark rim, saturated center, and a narrow wet highlight create depth.
+                        float edgeShade = 1f - across * 0.62f;
+                        float grain = 0.94f + 0.06f * (float)Math.Sin(x * 0.37 + y * 0.21 + stream);
+                        int red = (int)(150 * edgeShade * grain + 35);
+                        int green = dx == -half / 2 ? 26 : 2;
+                        int blue = (int)(18 * edgeShade);
+                        byte alpha = (byte)(218 - across * 24);
 
-                        pixels[y * width + x] = color;
+                        if (dx == -Math.Max(1, half / 2))
+                        {
+                            red = 238;
+                            green = 70;
+                            blue = 78;
+                            alpha = 205;
+                        }
+                        else if (Math.Abs(dx) == half)
+                        {
+                            red = 70;
+                            green = 0;
+                            blue = 8;
+                            alpha = 235;
+                        }
+
+                        pixels[y * width + x] = new Color(red, green, blue, alpha);
                     }
                 }
 
-                int endY = Math.Min(height - 3, length);
-                int endX = Math.Max(2, Math.Min(width - 3, originX));
-                for (int y = endY - 3; y <= endY + 2; y++)
-                    for (int x = endX - 2; x <= endX + 2; x++)
-                        if (x >= 0 && x < width && y >= 0 && y < height)
-                            pixels[y * width + x] = new Color(155, 0, 18, 230);
+                // Bulb-shaped drop at the moving tip, with a bright upper glint.
+                int tipX = Math.Max(3, Math.Min(width - 4, originX));
+                int tipY = Math.Max(2, Math.Min(height - 3, endY));
+                int radius = Math.Max(2, (int)(baseWidth * 0.85f));
+                for (int y = tipY - radius; y <= tipY + radius; y++)
+                {
+                    for (int x = tipX - radius; x <= tipX + radius; x++)
+                    {
+                        if (x < 0 || x >= width || y < 0 || y >= height)
+                            continue;
+                        float d = (float)Math.Sqrt((x - tipX) * (x - tipX) + (y - tipY) * (y - tipY) * 0.7f);
+                        if (d > radius)
+                            continue;
+                        Color drop = d < radius * 0.35f
+                            ? new Color(235, 55, 65, 230)
+                            : new Color(125, 0, 12, 238);
+                        pixels[y * width + x] = drop;
+                    }
+                }
             }
 
             texture.SetData(pixels);
@@ -562,9 +620,20 @@ namespace PennywiseJumpscare
                 suspenseMusic.Stop();
         }
 
+        private void RestoreGameMusic()
+        {
+            if (originalMusicVolume >= 0f)
+            {
+                Game1.musicPlayerVolume = originalMusicVolume;
+                Game1.musicCategory.SetVolume(originalMusicVolume);
+                originalMusicVolume = -1f;
+            }
+        }
+
         private void EndEncounter()
         {
             StopSuspenseMusic();
+            RestoreGameMusic();
             musicRampTimer = 0;
             if (pennywise != null)
             {
@@ -590,6 +659,7 @@ namespace PennywiseJumpscare
         private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
         {
             StopSuspenseMusic();
+            RestoreGameMusic();
             musicRampTimer = 0;
             if (pennywise != null)
             {
