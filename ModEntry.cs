@@ -489,6 +489,41 @@ namespace PennywiseJumpscare
             return texture;
         }
 
+        private void StartSuspenseMusic()
+        {
+            try
+            {
+                if (suspenseMusic == null)
+                {
+                    string path = Path.Combine(Helper.DirectoryPath, "suspense.wav");
+                    if (!File.Exists(path))
+                    {
+                        Monitor.Log("Suspense music file is missing; continuing without music.", LogLevel.Warn);
+                        return;
+                    }
+
+                    using (FileStream stream = File.OpenRead(path))
+                        suspenseSound = SoundEffect.FromStream(stream);
+                    suspenseMusic = suspenseSound.CreateInstance();
+                    suspenseMusic.IsLooped = true;
+                    suspenseMusic.Volume = 0.35f;
+                }
+
+                if (suspenseMusic.State != SoundState.Playing)
+                    suspenseMusic.Play();
+            }
+            catch (Exception ex)
+            {
+                Monitor.Log("Couldn't start suspense music: " + ex.Message, LogLevel.Warn);
+            }
+        }
+
+        private void StopSuspenseMusic()
+        {
+            if (suspenseMusic != null)
+                suspenseMusic.Stop();
+        }
+
         private void EndEncounter()
         {
             if (pennywise != null)
