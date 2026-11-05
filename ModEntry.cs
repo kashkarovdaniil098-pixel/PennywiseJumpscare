@@ -590,7 +590,7 @@ namespace PennywiseJumpscare
 
         private void OnRenderedHud(object? sender, RenderedHudEventArgs e)
         {
-            if (!active || !Context.IsWorldReady)
+            if ((!active && silhouetteTimer <= 0 && jumpscareFaceTimer <= 0) || !Context.IsWorldReady)
                 return;
 
             // Draw the full-screen portrait during the warning, before Pennywise appears.
