@@ -29,6 +29,7 @@ namespace PennywiseJumpscare
         private int attackCooldown;
         private int pathTimer;
         private int normalSpeed = -1;
+        private float normalScale = 1f;
 
         private int observationTimer;
         private int fleeTimer;
@@ -104,6 +105,7 @@ namespace PennywiseJumpscare
                 }
 
                 normalSpeed = Math.Max(1, pennywise.speed);
+                normalScale = pennywise.scale;
                 missingNpcLogged = false;
                 Monitor.Log("Pennywise NPC found.", LogLevel.Info);
             }
@@ -321,6 +323,7 @@ namespace PennywiseJumpscare
             pennywise.setTileLocation(spawn.Value);
             location.addCharacter(pennywise);
             pennywise.speed = Math.Max(1, normalSpeed * 3);
+            pennywise.scale = normalScale * 1.5f;
 
             originalMusicVolume = Game1.musicPlayerVolume;
             active = true;
@@ -746,6 +749,7 @@ namespace PennywiseJumpscare
                 pennywise.controller = null;
                 pennywise.Halt();
                 pennywise.speed = normalSpeed;
+                pennywise.scale = normalScale;
                 pennywise.currentLocation?.characters.Remove(pennywise);
                 pennywise.currentLocation = null;
             }
