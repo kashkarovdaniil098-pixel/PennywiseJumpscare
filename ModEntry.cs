@@ -490,7 +490,7 @@ namespace PennywiseJumpscare
             // A glossy, uneven upper pool with a dark underside and tiny surface highlights.
             for (int x = 0; x < width; x++)
             {
-                int edge = 19 + (int)(3 * Math.Sin(x * 0.071)) + textureRandom.Next(0, 5);
+                int edge = 36 + (int)(5 * Math.Sin(x * 0.071)) + textureRandom.Next(0, 7);
                 for (int y = 0; y <= edge; y++)
                 {
                     float shade = y / (float)Math.Max(1, edge);
@@ -507,13 +507,13 @@ namespace PennywiseJumpscare
 
             // Rounded, irregular streams. Their starting points advance each frame,
             // making the glossy drips visibly travel down instead of remaining flat.
-            for (int stream = 0; stream < 39; stream++)
+            for (int stream = 0; stream < 25; stream++)
             {
                 int originX = textureRandom.Next(0, width);
-                int maxLength = textureRandom.Next(260, 560);
+                int maxLength = textureRandom.Next(190, 430);
                 int phase = textureRandom.Next(0, 90);
                 int startY = -((frame * 2 + phase) % 72);
-                float baseWidth = textureRandom.Next(2, 8);
+                float baseWidth = textureRandom.Next(5, 9);
                 float wave = (float)textureRandom.NextDouble() * 6.28f;
                 float drift = 0.7f + (float)textureRandom.NextDouble() * 1.8f;
                 int endY = Math.Min(height - 4, startY + maxLength);
@@ -563,9 +563,9 @@ namespace PennywiseJumpscare
                 }
 
                 // Bulb-shaped drop at the moving tip, with a bright upper glint.
-                int tipX = Math.Max(3, Math.Min(width - 4, originX));
+                int tipX = Math.Max(3, Math.Min(width - 4, (int)(originX + Math.Sin((endY - startY + frame * 0.8f) * 0.045f + wave) * drift + Math.Sin((endY - startY) * 0.018f + wave) * 1.5f)));
                 int tipY = Math.Max(2, Math.Min(height - 3, endY));
-                int radius = Math.Max(2, (int)(baseWidth * 0.85f));
+                int radius = Math.Max(3, (int)(baseWidth * 0.72f));
                 for (int y = tipY - radius; y <= tipY + radius; y++)
                 {
                     for (int x = tipX - radius; x <= tipX + radius; x++)
@@ -589,15 +589,16 @@ namespace PennywiseJumpscare
 
         private SoundEffect CreateSuspenseViolinSound()
         {
-            const int sampleRate = 22050;
+            const int sampleRate = 44100;
             const int seconds = 12;
             int sampleCount = sampleRate * seconds;
             byte[] pcm = new byte[sampleCount * 2];
 
-            // A slow minor-key violin phrase with a low drone, expressive vibrato,
-            // bowed-string harmonics, and a gradual rise in intensity.
-            double[] notes = { 293.66, 311.13, 349.23, 329.63, 293.66, 233.08 };
-            const double noteSeconds = 2.0;
+            // Brighter, higher-register bowed-string melody. The fundamental is
+            // supported by strong upper harmonics so it reads as a violin, not a bass drone.
+            double[] notes = { 440.00, 523.25, 587.33, 659.25, 587.33, 493.88,
+                               440.00, 392.00, 466.16, 523.25, 587.33, 659.25 };
+            const double noteSeconds = 1.0;
             const double twoPi = Math.PI * 2.0;
 
             for (int i = 0; i < sampleCount; i++)
@@ -605,36 +606,34 @@ namespace PennywiseJumpscare
                 double t = i / (double)sampleRate;
                 int noteIndex = Math.Min(notes.Length - 1, (int)(t / noteSeconds));
                 double local = t - noteIndex * noteSeconds;
-                double progress = local / noteSeconds;
-                double attack = Math.Min(1.0, local / 0.22);
-                double release = Math.Min(1.0, (noteSeconds - local) / 0.28);
+                double attack = Math.Min(1.0, local / 0.16);
+                double release = Math.Min(1.0, (noteSeconds - local) / 0.18);
                 double envelope = Math.Max(0.0, Math.Min(attack, release));
-                double swell = 0.55 + 0.45 * (t / seconds);
-                double vibrato = 1.0 + 0.006 * Math.Sin(twoPi * 5.2 * t);
+                double vibrato = 1.0 + 0.009 * Math.Sin(twoPi * 5.4 * t);
                 double frequency = notes[noteIndex] * vibrato
-                    * (1.0 + 0.0025 * Math.Sin(twoPi * 0.7 * t));
-
+                    * (1.0 + 0.0018 * Math.Sin(twoPi * 0.65 * t));
                 double phase = twoPi * frequency * t;
+
+                // Rich bowed-string spectrum: upper partials carry the audible melody.
                 double violin =
-                    0.62 * Math.Sin(phase) +
-                    0.24 * Math.Sin(phase * 2.01 + 0.2) +
-                    0.13 * Math.Sin(phase * 3.02 + 0.5) +
-                    0.07 * Math.Sin(phase * 4.03 + 0.8) +
-                    0.035 * Math.Sin(phase * 5.05 + 1.1);
+                    0.34 * Math.Sin(phase) +
+                    0.30 * Math.Sin(phase * 2.0 + 0.12) +
+                    0.23 * Math.Sin(phase * 3.0 + 0.28) +
+                    0.17 * Math.Sin(phase * 4.0 + 0.46) +
+                    0.12 * Math.Sin(phase * 5.0 + 0.64) +
+                    0.07 * Math.Sin(phase * 6.0 + 0.82);
 
-                double dronePhase = twoPi * 146.83 * t;
-                double drone = 0.16 * Math.Sin(dronePhase)
-                    + 0.06 * Math.Sin(dronePhase * 2.0);
+                // A quiet sustained fifth adds tension without masking the melody.
+                double harmonyPhase = twoPi * (notes[noteIndex] * 1.5) * t;
+                double harmony = 0.10 * Math.Sin(harmonyPhase)
+                    + 0.045 * Math.Sin(harmonyPhase * 2.0);
+                double bowTexture = 0.018 * Math.Sin(twoPi * 31.0 * t)
+                    * Math.Sin(twoPi * 0.27 * t);
 
-                double highPhase = twoPi * 622.25 * t;
-                double tension = 0.045 * Math.Sin(highPhase + 0.3 * Math.Sin(twoPi * 0.18 * t));
-
-                // Soft bowed-string rasp, kept subtle so it sounds like a string instrument.
-                double bow = 0.012 * Math.Sin(twoPi * 37.0 * t)
-                    * Math.Sin(twoPi * 0.31 * t);
-
-                double sample = (violin * envelope + drone + tension + bow) * swell * 0.48;
-                sample = Math.Max(-0.92, Math.Min(0.92, sample));
+                double swell = 0.82 + 0.18 * (t / seconds);
+                double sample = (violin * envelope + harmony * envelope + bowTexture)
+                    * swell * 0.68;
+                sample = Math.Max(-0.94, Math.Min(0.94, sample));
                 short value = (short)(sample * 32767.0);
                 pcm[i * 2] = (byte)(value & 0xFF);
                 pcm[i * 2 + 1] = (byte)((value >> 8) & 0xFF);
