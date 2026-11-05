@@ -19,6 +19,12 @@ jobs:
 
       - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-reference-assemblies@v1
 
+      - name: Build and use the new Pennywise walking sprite
+        run: |
+          python -m pip install --quiet pillow
+          python tools/build_walking_sprite.py
+          cp PennywiseNPC/assets/sprites_candidate.png PennywiseNPC/assets/sprites.png
+
       - name: Build SMAPI mod
         run: dotnet build PennywiseJumpscare.csproj -c Release
 
