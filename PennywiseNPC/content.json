@@ -4,7 +4,7 @@
     {
       "Action": "Load",
       "Target": "Characters/Daniil.PennywiseNPC_Pennywise",
-      "FromFile": "assets/sprites.png"
+      "FromFile": "assets/animations.png"
     },
     {
       "Action": "Load",
