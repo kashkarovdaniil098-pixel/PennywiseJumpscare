@@ -1,0 +1,9 @@
+{
+  "Name": "Pennywise Jumpscare",
+  "Author": "Daniil",
+  "Version": "0.1.0",
+  "Description": "Experimental random nearby Pennywise appearances.",
+  "UniqueID": "Daniil.PennywiseJumpscare",
+  "EntryDll": "PennywiseJumpscare.dll",
+  "MinimumApiVersion": "4.0.0"
+}
