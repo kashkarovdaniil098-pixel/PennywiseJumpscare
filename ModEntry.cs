@@ -46,13 +46,13 @@ namespace PennywiseJumpscare
 
         private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
         {
-            appearanceTimer = 60 * 50;
+            appearanceTimer = 60 * 30;
             active = false;
             chasing = false;
             observing = false;
             fleeing = false;
             pathTimer = 0;
-            Monitor.Log("Save loaded. Pennywise's first appearance is scheduled in 50 seconds.", LogLevel.Info);
+            Monitor.Log("Save loaded. Pennywise's first appearance is scheduled in 30 seconds.", LogLevel.Info);
         }
 
         private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
@@ -80,13 +80,12 @@ namespace PennywiseJumpscare
                 Monitor.Log("Pennywise NPC found.", LogLevel.Info);
             }
 
-            // Count the 50-second cycle from one appearance to the next,
-            // including the time spent observing, chasing, and fleeing.
-            if (appearanceTimer > 0)
-                appearanceTimer--;
-
+            // Wait 30 seconds after the previous scene has fully ended.
             if (!active)
             {
+                if (appearanceTimer > 0)
+                    appearanceTimer--;
+
                 if (appearanceTimer <= 0)
                     TryAppear();
 
@@ -201,9 +200,8 @@ namespace PennywiseJumpscare
             observing = true;
             chasing = false;
             fleeing = false;
-            observationTimer = 60 * 3;
-            encounterTimer = 60 * 35;
-            appearanceTimer = 60 * 50;
+            observationTimer = 60 * 30;
+            encounterTimer = 60 * 40;
             attackCooldown = 0;
             pathTimer = 0;
             stuckChecks = 0;
@@ -420,7 +418,8 @@ namespace PennywiseJumpscare
             pathTimer = 0;
             stuckChecks = 0;
 
-            Monitor.Log("Pennywise fled and disappeared. The 50-second appearance cycle continues.", LogLevel.Info);
+            appearanceTimer = 60 * 30;
+            Monitor.Log("Pennywise fled and disappeared. Next appearance in 30 seconds.", LogLevel.Info);
         }
 
         private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
