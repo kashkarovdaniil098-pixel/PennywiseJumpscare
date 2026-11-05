@@ -1,0 +1,46 @@
+{
+  "Format": "2.9.0",
+  "Changes": [
+    {
+      "Action": "Load",
+      "Target": "Characters/Daniil.PennywiseNPC_Pennywise",
+      "FromFile": "assets/sprites.png"
+    },
+    {
+      "Action": "Load",
+      "Target": "Portraits/Daniil.PennywiseNPC_Pennywise",
+      "FromFile": "assets/portraits.png"
+    },
+    {
+      "Action": "Load",
+      "Target": "Characters/Dialogue/Daniil.PennywiseNPC_Pennywise",
+      "FromFile": "dialogue.json"
+    },
+    {
+      "Action": "Load",
+      "Target": "Characters/schedules/Daniil.PennywiseNPC_Pennywise",
+      "FromFile": "schedule.json"
+    },
+    {
+      "Action": "EditData",
+      "Target": "Data/Characters",
+      "Entries": {
+        "Daniil.PennywiseNPC_Pennywise": {
+          "DisplayName": "Pennywise",
+          "BirthSeason": "Fall",
+          "BirthDay": 31,
+          "HomeRegion": "Town",
+          "Language": "Default",
+          "Gender": "Male",
+          "Age": "Adult",
+          "Manner": "Rude",
+          "SocialAnxiety": "Neutral",
+          "Optimism": "Negative",
+          "CanBeRomanced": false,
+          "CanSocialize": true,
+          "TextureName": "Daniil.PennywiseNPC_Pennywise"
+        }
+      }
+    }
+  ]
+}
