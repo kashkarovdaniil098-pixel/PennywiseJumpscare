@@ -22,6 +22,10 @@ namespace PennywiseJumpscare
         private SoundEffectInstance? suspenseMusic;
 
         private int appearanceTimer;
+        private int balloonSpawnTimer;
+        private Vector2 balloonTile;
+        private GameLocation? balloonLocation;
+        private bool balloonVisible;
         private int encounterTimer;
         private int attackCooldown;
         private int pathTimer;
@@ -63,6 +67,9 @@ namespace PennywiseJumpscare
         private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
         {
             appearanceTimer = 60 * 30;
+            balloonSpawnTimer = 0;
+            balloonVisible = false;
+            balloonLocation = null;
             active = false;
             chasing = false;
             observing = false;
@@ -108,11 +115,19 @@ namespace PennywiseJumpscare
             // Wait 30 seconds after the previous scene has fully ended.
             if (!active)
             {
+                if (balloonSpawnTimer > 0)
+                {
+                    balloonSpawnTimer--;
+                    if (balloonSpawnTimer <= 0)
+                        TryAppear();
+                    return;
+                }
+
                 if (appearanceTimer > 0)
                     appearanceTimer--;
 
                 if (appearanceTimer <= 0)
-                    TryAppear();
+                    PrepareBalloonAppearance();
 
                 return;
             }
@@ -139,6 +154,32 @@ namespace PennywiseJumpscare
             if (pennywise.currentLocation != Game1.currentLocation)
                 return;
 
+            // Full-screen scare sequence runs while Pennywise is already pursuing:
+            // dark silhouette, smiling portrait with shake, then glossy blood drips.
+            if (silhouetteTimer > 0)
+            {
+                silhouetteTimer--;
+                if (silhouetteTimer == 0)
+                    jumpscareFaceTimer = 45;
+            }
+            else if (jumpscareFaceTimer > 0)
+            {
+                jumpscareFaceTimer--;
+                if (Game1.ticks % 3 == 0)
+                {
+                    screenShakeX = random.Next(-5, 6);
+                    screenShakeY = random.Next(-4, 5);
+                    Game1.viewport.X += screenShakeX;
+                    Game1.viewport.Y += screenShakeY;
+                }
+                if (jumpscareFaceTimer == 0)
+                    effectTimer = 60 * 3;
+            }
+            else if (effectTimer > 0)
+            {
+                effectTimer--;
+            }
+
             if (attackCooldown > 0)
                 attackCooldown--;
 
@@ -147,32 +188,6 @@ namespace PennywiseJumpscare
                 pennywise.controller = null;
                 pennywise.Halt();
                 observationTimer--;
-
-                // Phase 1: show the dark portrait silhouette for one second.
-                if (silhouetteTimer > 0)
-                {
-                    silhouetteTimer--;
-                    if (silhouetteTimer == 0)
-                        jumpscareFaceTimer = 45; // Phase 2: reveal the smiling close-up.
-                }
-                else if (jumpscareFaceTimer > 0)
-                {
-                    jumpscareFaceTimer--;
-                    // Shake the camera during the close-up, before the blood starts.
-                    if (Game1.ticks % 3 == 0)
-                    {
-                        screenShakeX = random.Next(-5, 6);
-                        screenShakeY = random.Next(-4, 5);
-                        Game1.viewport.X += screenShakeX;
-                        Game1.viewport.Y += screenShakeY;
-                    }
-                    if (jumpscareFaceTimer == 0)
-                        effectTimer = 60 * 3; // Phase 3: blood drips begin after the shake.
-                }
-                else if (effectTimer > 0)
-                {
-                    effectTimer--;
-                }
 
                 if (observationTimer <= 0)
                 {
@@ -243,22 +258,72 @@ namespace PennywiseJumpscare
             return location.isTileOnMap(tile) && location.isTilePassable(tile);
         }
 
-        private void TryAppear()
+        private void PrepareBalloonAppearance()
         {
             GameLocation location = Game1.currentLocation;
             Vector2 playerTile = Game1.player.Tile;
-            Vector2? spawn = FindCoveredSpawn(location, playerTile);
-
-            if (spawn == null)
-                spawn = FindFallbackSpawn(location, playerTile);
+            Vector2? spawn = FindBalloonSpawn(location, playerTile);
 
             if (spawn == null)
             {
                 appearanceTimer = 60;
-                Monitor.Log("No suitable spawn tile found. Retrying.", LogLevel.Warn);
+                Monitor.Log("Couldn't find a passable tile about 10 tiles away for the balloon. Retrying.", LogLevel.Warn);
                 return;
             }
 
+            balloonTile = spawn.Value;
+            balloonLocation = location;
+            balloonVisible = true;
+            balloonSpawnTimer = 60 * 2;
+            Monitor.Log("A red balloon appeared about 10 tiles from the player. Pennywise will arrive in 2 seconds.", LogLevel.Info);
+        }
+
+        private Vector2? FindBalloonSpawn(GameLocation location, Vector2 playerTile)
+        {
+            Vector2? best = null;
+            float bestDifference = float.MaxValue;
+
+            // Search a ring around the player and choose the closest passable tile to 10 tiles.
+            for (int x = -12; x <= 12; x++)
+            for (int y = -12; y <= 12; y++)
+            {
+                float distance = (float)Math.Sqrt(x * x + y * y);
+                if (distance < 8.5f || distance > 11.5f)
+                    continue;
+
+                Vector2 candidate = playerTile + new Vector2(x, y);
+                if (!IsPassable(location, candidate))
+                    continue;
+
+                float difference = Math.Abs(distance - 10f);
+                if (difference < bestDifference)
+                {
+                    bestDifference = difference;
+                    best = candidate;
+                }
+            }
+
+            return best;
+        }
+
+        private void TryAppear()
+        {
+            GameLocation location = Game1.currentLocation;
+            Vector2? spawn = balloonVisible && balloonLocation == location && IsPassable(location, balloonTile)
+                ? balloonTile
+                : FindBalloonSpawn(location, Game1.player.Tile);
+
+            if (spawn == null)
+            {
+                balloonSpawnTimer = 0;
+                appearanceTimer = 60;
+                Monitor.Log("No suitable Pennywise spawn tile found. Retrying.", LogLevel.Warn);
+                return;
+            }
+
+            balloonTile = spawn.Value;
+            balloonLocation = location;
+            balloonVisible = true;
             pennywise!.controller = null;
             pennywise.currentLocation?.characters.Remove(pennywise);
             pennywise.currentLocation = location;
@@ -272,22 +337,23 @@ namespace PennywiseJumpscare
             bloodFrame = 0;
             bloodRefreshTimer = 0;
             StartSuspenseMusic();
-            observing = true;
-            chasing = false;
+            // The balloon is the warning: Pennywise appears at its tile after 2 seconds
+            // and immediately begins chasing instead of standing and watching.
+            observing = false;
+            chasing = true;
             fleeing = false;
-            // Show a full-screen silhouette first; then reveal the smiling close-up
-            // together with the blood overlay and stronger camera shake.
-            observationTimer = 60 * 10;
+            observationTimer = 0;
             silhouetteTimer = 60;
             jumpscareFaceTimer = 0;
             effectTimer = 0;
+            LoadJumpscarePortrait();
             encounterTimer = 60 * 30;
             attackCooldown = 0;
             pathTimer = 0;
             stuckChecks = 0;
             lastPathPosition = pennywise.Position;
 
-            Monitor.Log("Pennywise appeared behind nearby cover and is watching the player.", LogLevel.Info);
+            Monitor.Log("Pennywise appeared beside the red balloon and immediately started chasing.", LogLevel.Info);
         }
 
         private Vector2? FindCoveredSpawn(GameLocation location, Vector2 playerTile)
@@ -446,38 +512,89 @@ namespace PennywiseJumpscare
 
         private void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
         {
-            if (!active || pennywise == null || pennywise.currentLocation != Game1.currentLocation)
+            if (!balloonVisible || balloonLocation != Game1.currentLocation)
                 return;
 
             balloonTexture ??= CreateBalloonTexture();
-            Vector2 position = Game1.GlobalToLocal(
-                Game1.viewport,
-                pennywise.Position + new Vector2(34, 0)
+            Vector2 worldPosition = new Vector2(
+                balloonTile.X * Game1.tileSize + 4,
+                balloonTile.Y * Game1.tileSize - 58
             );
-
+            Vector2 position = Game1.GlobalToLocal(Game1.viewport, worldPosition);
             e.SpriteBatch.Draw(balloonTexture, position, Color.White);
         }
 
         private Texture2D CreateBalloonTexture()
         {
-            const int width = 28;
-            const int height = 38;
+            const int width = 64;
+            const int height = 92;
             Texture2D texture = new Texture2D(Game1.graphics.GraphicsDevice, width, height);
             Color[] pixels = new Color[width * height];
 
-            for (int y = 0; y < height; y++)
+            // Large glossy red balloon with a visible knot and a thin curved string.
+            for (int y = 3; y < 70; y++)
+            for (int x = 7; x < 57; x++)
             {
-                for (int x = 0; x < width; x++)
+                float dx = (x - 32f) / 24f;
+                float dy = (y - 31f) / 34f;
+                float d = dx * dx + dy * dy;
+                if (d <= 1f)
                 {
-                    float dx = (x - 14f) / 13f;
-                    float dy = (y - 13f) / 16f;
-                    bool inside = dx * dx + dy * dy <= 1f;
-                    pixels[y * width + x] = inside ? Color.Red : Color.Transparent;
+                    float shine = Math.Max(0f, 1f - (float)Math.Sqrt(
+                        ((x - 22f) / 12f) * ((x - 22f) / 12f) +
+                        ((y - 19f) / 19f) * ((y - 19f) / 19f)));
+                    pixels[y * width + x] = new Color(
+                        155 + (int)(shine * 100),
+                        0 + (int)(shine * 24),
+                        8 + (int)(shine * 22),
+                        255
+                    );
                 }
+            }
+
+            // Knot at the bottom of the balloon.
+            for (int y = 66; y <= 73; y++)
+            for (int x = 27; x <= 37; x++)
+                if (Math.Abs(x - 32) + Math.Abs(y - 69) <= 7)
+                    pixels[y * width + x] = new Color(120, 0, 12, 255);
+
+            // Fine grey string with a slight waviness.
+            for (int y = 73; y < 92; y++)
+            {
+                int x = 32 + (int)Math.Round(Math.Sin(y * 0.22) * 2.0);
+                pixels[y * width + x] = new Color(215, 215, 215, 255);
+                if (x + 1 < width)
+                    pixels[y * width + x + 1] = new Color(110, 110, 110, 230);
             }
 
             texture.SetData(pixels);
             return texture;
+        }
+
+        private void LoadJumpscarePortrait()
+        {
+            if (jumpscareTexture != null)
+                return;
+
+            try
+            {
+                string imagePath = Path.Combine(Helper.DirectoryPath, "jumpscare.png");
+                if (!File.Exists(imagePath))
+                {
+                    Monitor.Log("jumpscare.png is missing from the mod folder: " + imagePath, LogLevel.Error);
+                    return;
+                }
+
+                using (FileStream stream = File.OpenRead(imagePath))
+                    jumpscareTexture = Texture2D.FromStream(Game1.graphics.GraphicsDevice, stream);
+
+                Monitor.Log("Loaded full-screen Pennywise portrait: " + jumpscareTexture.Width + "x" + jumpscareTexture.Height, LogLevel.Info);
+            }
+            catch (Exception ex)
+            {
+                Monitor.Log("Couldn't load jumpscare.png: " + ex, LogLevel.Error);
+                jumpscareTexture = null;
+            }
         }
 
         private void OnRenderedHud(object? sender, RenderedHudEventArgs e)
@@ -489,15 +606,12 @@ namespace PennywiseJumpscare
             // and close-up phases. The same asset is reused for both stages.
             if (silhouetteTimer > 0 || jumpscareFaceTimer > 0)
             {
+                LoadJumpscarePortrait();
                 if (jumpscareTexture == null)
-                {
-                    string imagePath = Path.Combine(Helper.DirectoryPath, "jumpscare.png");
-                    using (FileStream stream = File.OpenRead(imagePath))
-                        jumpscareTexture = Texture2D.FromStream(Game1.graphics.GraphicsDevice, stream);
-                }
+                    return;
 
-                int screenW = Game1.viewport.Width;
-                int screenH = Game1.viewport.Height;
+                int screenW = Game1.uiViewport.Width;
+                int screenH = Game1.uiViewport.Height;
                 float scale = Math.Max(
                     (float)screenW / jumpscareTexture.Width,
                     (float)screenH / jumpscareTexture.Height
@@ -800,8 +914,9 @@ namespace PennywiseJumpscare
             silhouetteTimer = 0;
             jumpscareFaceTimer = 0;
 
+            balloonSpawnTimer = 0;
             appearanceTimer = 60 * 30;
-            Monitor.Log("Pennywise fled and disappeared. Next appearance in 30 seconds.", LogLevel.Info);
+            Monitor.Log("Pennywise fled and disappeared. The red balloon remains behind.", LogLevel.Info);
         }
 
         private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
@@ -822,6 +937,9 @@ namespace PennywiseJumpscare
             pennywise = null;
             normalSpeed = -1;
             appearanceTimer = 0;
+            balloonSpawnTimer = 0;
+            balloonVisible = false;
+            balloonLocation = null;
             pathTimer = 0;
             observationTimer = 0;
             fleeTimer = 0;
