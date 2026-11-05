@@ -471,9 +471,10 @@ namespace PennywiseJumpscare
                 bloodDripTexture = CreateBloodDripTexture(bloodFrame++);
                 bloodRefreshTimer = 0;
             }
+            // Stretch the drip layer over the full screen so the streams reach the bottom edge.
             e.SpriteBatch.Draw(
                 bloodDripTexture,
-                new Rectangle(0, 0, Game1.viewport.Width, 235),
+                new Rectangle(0, 0, Game1.viewport.Width, Game1.viewport.Height),
                 Color.White
             );
         }
@@ -481,7 +482,7 @@ namespace PennywiseJumpscare
         private Texture2D CreateBloodDripTexture(int frame)
         {
             const int width = 512;
-            const int height = 235;
+            const int height = 512;
             Texture2D texture = new Texture2D(Game1.graphics.GraphicsDevice, width, height);
             Color[] pixels = new Color[width * height];
             Random textureRandom = new Random(7319);
@@ -509,7 +510,7 @@ namespace PennywiseJumpscare
             for (int stream = 0; stream < 39; stream++)
             {
                 int originX = textureRandom.Next(0, width);
-                int maxLength = textureRandom.Next(62, 225);
+                int maxLength = textureRandom.Next(260, 560);
                 int phase = textureRandom.Next(0, 90);
                 int startY = -((frame * 2 + phase) % 72);
                 float baseWidth = textureRandom.Next(2, 8);
@@ -586,21 +587,70 @@ namespace PennywiseJumpscare
             return texture;
         }
 
+        private SoundEffect CreateSuspenseViolinSound()
+        {
+            const int sampleRate = 22050;
+            const int seconds = 12;
+            int sampleCount = sampleRate * seconds;
+            byte[] pcm = new byte[sampleCount * 2];
+
+            // A slow minor-key violin phrase with a low drone, expressive vibrato,
+            // bowed-string harmonics, and a gradual rise in intensity.
+            double[] notes = { 293.66, 311.13, 349.23, 329.63, 293.66, 233.08 };
+            const double noteSeconds = 2.0;
+            const double twoPi = Math.PI * 2.0;
+
+            for (int i = 0; i < sampleCount; i++)
+            {
+                double t = i / (double)sampleRate;
+                int noteIndex = Math.Min(notes.Length - 1, (int)(t / noteSeconds));
+                double local = t - noteIndex * noteSeconds;
+                double progress = local / noteSeconds;
+                double attack = Math.Min(1.0, local / 0.22);
+                double release = Math.Min(1.0, (noteSeconds - local) / 0.28);
+                double envelope = Math.Max(0.0, Math.Min(attack, release));
+                double swell = 0.55 + 0.45 * (t / seconds);
+                double vibrato = 1.0 + 0.006 * Math.Sin(twoPi * 5.2 * t);
+                double frequency = notes[noteIndex] * vibrato
+                    * (1.0 + 0.0025 * Math.Sin(twoPi * 0.7 * t));
+
+                double phase = twoPi * frequency * t;
+                double violin =
+                    0.62 * Math.Sin(phase) +
+                    0.24 * Math.Sin(phase * 2.01 + 0.2) +
+                    0.13 * Math.Sin(phase * 3.02 + 0.5) +
+                    0.07 * Math.Sin(phase * 4.03 + 0.8) +
+                    0.035 * Math.Sin(phase * 5.05 + 1.1);
+
+                double dronePhase = twoPi * 146.83 * t;
+                double drone = 0.16 * Math.Sin(dronePhase)
+                    + 0.06 * Math.Sin(dronePhase * 2.0);
+
+                double highPhase = twoPi * 622.25 * t;
+                double tension = 0.045 * Math.Sin(highPhase + 0.3 * Math.Sin(twoPi * 0.18 * t));
+
+                // Soft bowed-string rasp, kept subtle so it sounds like a string instrument.
+                double bow = 0.012 * Math.Sin(twoPi * 37.0 * t)
+                    * Math.Sin(twoPi * 0.31 * t);
+
+                double sample = (violin * envelope + drone + tension + bow) * swell * 0.48;
+                sample = Math.Max(-0.92, Math.Min(0.92, sample));
+                short value = (short)(sample * 32767.0);
+                pcm[i * 2] = (byte)(value & 0xFF);
+                pcm[i * 2 + 1] = (byte)((value >> 8) & 0xFF);
+            }
+
+            return new SoundEffect(pcm, sampleRate, AudioChannels.Mono);
+        }
+
         private void StartSuspenseMusic()
         {
             try
             {
                 if (suspenseMusic == null)
                 {
-                    string path = Path.Combine(Helper.DirectoryPath, "suspense.wav");
-                    if (!File.Exists(path))
-                    {
-                        Monitor.Log("Suspense music file is missing; continuing without music.", LogLevel.Warn);
-                        return;
-                    }
-
-                    using (FileStream stream = File.OpenRead(path))
-                        suspenseSound = SoundEffect.FromStream(stream);
+                    // Generate an original ominous violin cue in memory: no external music file required.
+                    suspenseSound = CreateSuspenseViolinSound();
                     suspenseMusic = suspenseSound.CreateInstance();
                     // The update loop restarts the track as soon as it finishes.
                     suspenseMusic.Volume = 0.02f;
