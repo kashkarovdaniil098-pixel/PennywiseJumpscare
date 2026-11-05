@@ -320,7 +320,7 @@ namespace PennywiseJumpscare
             pennywise.currentLocation = location;
             pennywise.setTileLocation(spawn.Value);
             location.addCharacter(pennywise);
-            pennywise.speed = Math.Max(1, normalSpeed);
+            pennywise.speed = Math.Max(1, normalSpeed * 3);
 
             originalMusicVolume = Game1.musicPlayerVolume;
             active = true;
@@ -419,7 +419,7 @@ namespace PennywiseJumpscare
 
                 try
                 {
-                    pennywise.speed = Math.Max(1, (int)Math.Ceiling(normalSpeed * 1.2));
+                    pennywise.speed = Math.Max(1, (int)Math.Ceiling(normalSpeed * 3.0));
                     var controller = new PathFindController(pennywise, location, destination, -1);
                     if (controller != null)
                     {
@@ -449,7 +449,7 @@ namespace PennywiseJumpscare
             observing = false;
             fleeTimer = 60 * 3;
             pennywise.controller = null;
-            pennywise.speed = Math.Max(1, (int)Math.Ceiling(normalSpeed * 1.5));
+            pennywise.speed = Math.Max(1, (int)Math.Ceiling(normalSpeed * 3.0));
             SendPennywiseAway();
             Monitor.Log("Pennywise is fleeing before disappearing.", LogLevel.Info);
         }
