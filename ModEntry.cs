@@ -148,29 +148,31 @@ namespace PennywiseJumpscare
                 pennywise.Halt();
                 observationTimer--;
 
+                // Phase 1: show the dark portrait silhouette for one second.
                 if (silhouetteTimer > 0)
                 {
                     silhouetteTimer--;
                     if (silhouetteTimer == 0)
+                        jumpscareFaceTimer = 45; // Phase 2: reveal the smiling close-up.
+                }
+                else if (jumpscareFaceTimer > 0)
+                {
+                    jumpscareFaceTimer--;
+                    // Shake the camera during the close-up, before the blood starts.
+                    if (Game1.ticks % 3 == 0)
                     {
-                        effectTimer = 60 * 3;
-                        jumpscareFaceTimer = 60 * 2;
+                        screenShakeX = random.Next(-5, 6);
+                        screenShakeY = random.Next(-4, 5);
+                        Game1.viewport.X += screenShakeX;
+                        Game1.viewport.Y += screenShakeY;
                     }
+                    if (jumpscareFaceTimer == 0)
+                        effectTimer = 60 * 3; // Phase 3: blood drips begin after the shake.
                 }
                 else if (effectTimer > 0)
                 {
                     effectTimer--;
-                    if (Game1.ticks % 3 == 0)
-                    {
-                        screenShakeX = random.Next(-4, 5);
-                        screenShakeY = random.Next(-3, 4);
-                        Game1.viewport.X += screenShakeX;
-                        Game1.viewport.Y += screenShakeY;
-                    }
                 }
-
-                if (jumpscareFaceTimer > 0)
-                    jumpscareFaceTimer--;
 
                 if (observationTimer <= 0)
                 {
@@ -483,6 +485,8 @@ namespace PennywiseJumpscare
             if (!active || !Context.IsWorldReady)
                 return;
 
+            // Draw the original sprite-sheet portrait full-screen for the silhouette
+            // and close-up phases. The same asset is reused for both stages.
             if (silhouetteTimer > 0 || jumpscareFaceTimer > 0)
             {
                 if (jumpscareTexture == null)
@@ -494,15 +498,32 @@ namespace PennywiseJumpscare
 
                 int screenW = Game1.viewport.Width;
                 int screenH = Game1.viewport.Height;
-                float scale = Math.Max((float)screenW / jumpscareTexture.Width, (float)screenH / jumpscareTexture.Height);
+                float scale = Math.Max(
+                    (float)screenW / jumpscareTexture.Width,
+                    (float)screenH / jumpscareTexture.Height
+                );
                 int drawW = (int)(jumpscareTexture.Width * scale);
                 int drawH = (int)(jumpscareTexture.Height * scale);
-                Rectangle faceRect = new Rectangle((screenW - drawW) / 2, (screenH - drawH) / 2, drawW, drawH);
+                Rectangle faceRect = new Rectangle(
+                    (screenW - drawW) / 2,
+                    (screenH - drawH) / 2,
+                    drawW,
+                    drawH
+                );
 
                 if (silhouetteTimer > 0)
-                    e.SpriteBatch.Draw(jumpscareTexture, faceRect, new Color(7, 0, 8, 245));
+                {
+                    // Nearly black tint turns the portrait into a looming silhouette.
+                    e.SpriteBatch.Draw(jumpscareTexture, faceRect, new Color(7, 0, 8, 255));
+                }
+                else
+                {
+                    float faceOpacity = Math.Min(1f, (46f - jumpscareFaceTimer) / 8f);
+                    e.SpriteBatch.Draw(jumpscareTexture, faceRect, Color.White * faceOpacity);
+                }
             }
 
+            // Phase 3 starts only after the portrait reveal and camera shake finish.
             if (effectTimer <= 0)
                 return;
 
@@ -512,25 +533,13 @@ namespace PennywiseJumpscare
                 bloodDripTexture = CreateBloodDripTexture(bloodFrame++);
                 bloodRefreshTimer = 0;
             }
-            // Keep the effect vivid at first, then smoothly dissolve it during its final second.
+
             float bloodOpacity = Math.Min(1f, effectTimer / 60f);
             e.SpriteBatch.Draw(
                 bloodDripTexture,
                 new Rectangle(0, 0, Game1.viewport.Width, Game1.viewport.Height),
                 Color.White * bloodOpacity
             );
-
-            if (jumpscareFaceTimer > 0 && jumpscareTexture != null)
-            {
-                int screenW = Game1.viewport.Width;
-                int screenH = Game1.viewport.Height;
-                float scale = Math.Max((float)screenW / jumpscareTexture.Width, (float)screenH / jumpscareTexture.Height);
-                int drawW = (int)(jumpscareTexture.Width * scale);
-                int drawH = (int)(jumpscareTexture.Height * scale);
-                Rectangle faceRect = new Rectangle((screenW - drawW) / 2, (screenH - drawH) / 2, drawW, drawH);
-                float faceOpacity = Math.Min(1f, jumpscareFaceTimer / 12f);
-                e.SpriteBatch.Draw(jumpscareTexture, faceRect, Color.White * faceOpacity);
-            }
         }
 
         private Texture2D CreateBloodDripTexture(int frame)
