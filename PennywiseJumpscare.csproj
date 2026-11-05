@@ -1,31 +1,13 @@
 
-name: Build PennywiseJumpscare
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup build environment
-        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
-
-      - name: Add game reference assemblies
-        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-reference-assemblies@v1
-
-      - name: Build mod
-        run: dotnet build PennywiseJumpscare.csproj -c Release
-
-      - name: Upload mod
-        uses: actions/upload-artifact@v4
-        with:
-          name: PennywiseJumpscare
-          path: |
-            bin/Release/
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PennywiseJumpscare</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.1.1" />
+  </ItemGroup>
+</Project>
