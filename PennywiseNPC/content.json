@@ -14,12 +14,12 @@
     {
       "Action": "Load",
       "Target": "Characters/Dialogue/Daniil.PennywiseNPC_Pennywise",
-      "FromFile": "dialogue.json"
+      "FromFile": "assets/dialogue.json"
     },
     {
       "Action": "Load",
       "Target": "Characters/schedules/Daniil.PennywiseNPC_Pennywise",
-      "FromFile": "schedule.json"
+      "FromFile": "assets/schedule.json"
     },
     {
       "Action": "EditData",
@@ -38,8 +38,17 @@
           "Optimism": "Negative",
           "CanBeRomanced": false,
           "CanSocialize": true,
+          "Calendar": "AlwaysShown",
+          "SocialTab": "UnknownUntilMet",
           "TextureName": "Daniil.PennywiseNPC_Pennywise"
         }
+      }
+    },
+    {
+      "Action": "EditData",
+      "Target": "Data/NPCGiftTastes",
+      "Entries": {
+        "Daniil.PennywiseNPC_Pennywise": "You're giving me this? How delightful.../74 446 797/Thank you. I shall remember this./-2 -7 -26/Why would I want this?/-4 -8/Keep that away from me./0 -20/Oh. A gift./194 216/"
       }
     }
   ]
