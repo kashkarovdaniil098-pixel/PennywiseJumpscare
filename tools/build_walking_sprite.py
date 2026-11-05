@@ -46,6 +46,7 @@ for col, name in enumerate(groups[1][1]):
 
 sheet.save(out)
 preview = sheet.resize((FW*8,FH*8), Image.Resampling.NEAREST)
+Path("sprite-preview").mkdir(parents=True, exist_ok=True)
 preview.save("sprite-preview/sprites_candidate_preview.png")
 Path("sprite-preview/sprites_candidate_info.json").write_text(json.dumps({
     "output":str(out),"sheet_size":list(sheet.size),"frame_size":[FW,FH],
