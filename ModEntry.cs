@@ -701,9 +701,8 @@ namespace PennywiseJumpscare
                     using (FileStream stream = File.OpenRead(musicPath))
                         suspenseSound = SoundEffect.FromStream(stream);
                     suspenseMusic = suspenseSound.CreateInstance();
-                    // Keep the encounter track looping inside the audio engine.
-                    // Restarting it manually from UpdateTicked can cause an audible hitch.
-                    suspenseMusic.IsLooped = true;
+                    // SMAPI's MonoGame reference doesn't expose IsLooped here.
+                    // OnUpdateTicked restarts the instance when playback ends.
                     suspenseMusic.Volume = 0.35f;
                 }
 
