@@ -114,18 +114,11 @@ namespace PennywiseJumpscare
                 if (balloonSpawnTimer > 0)
                 {
                     balloonSpawnTimer--;
-                    // Show the full-screen portrait before Pennywise enters the map.
-                    if (balloonSpawnTimer == 105)
-                    {
-                        LoadJumpscarePortrait();
-                        silhouetteTimer = 60;
-                        jumpscareFaceTimer = 45;
-                    }
                     if (silhouetteTimer > 0)
                     {
                         silhouetteTimer--;
                         if (silhouetteTimer == 0)
-                            jumpscareFaceTimer = 45;
+                            jumpscareFaceTimer = 180;
                     }
                     else if (jumpscareFaceTimer > 0)
                     {
@@ -268,8 +261,11 @@ namespace PennywiseJumpscare
             balloonTile = spawn.Value;
             balloonLocation = location;
             balloonVisible = true;
-            balloonSpawnTimer = 60 * 2;
-            Monitor.Log("A red balloon appeared about 10 tiles from the player. Pennywise will arrive in 2 seconds.", LogLevel.Info);
+            balloonSpawnTimer = 60 * 10;
+            LoadJumpscarePortrait();
+            silhouetteTimer = 45;
+            jumpscareFaceTimer = 0;
+            Monitor.Log("A red balloon appeared about 10 tiles from the player. Pennywise will arrive in 10 seconds.", LogLevel.Info);
         }
 
         private Vector2? FindBalloonSpawn(GameLocation location, Vector2 playerTile)
@@ -329,7 +325,7 @@ namespace PennywiseJumpscare
             active = true;
             musicRampTimer = 0;
             StartSuspenseMusic();
-            // The balloon is the warning: Pennywise appears at its tile after 2 seconds
+            // The balloon is the warning: Pennywise appears at its tile after 10 seconds
             // and immediately begins chasing instead of standing and watching.
             observing = false;
             chasing = true;
@@ -622,7 +618,7 @@ namespace PennywiseJumpscare
                 }
                 else
                 {
-                    float faceOpacity = Math.Min(1f, (46f - jumpscareFaceTimer) / 8f);
+                    float faceOpacity = Math.Min(1f, (192f - jumpscareFaceTimer) / 12f);
                     e.SpriteBatch.Draw(jumpscareTexture, faceRect, Color.White * faceOpacity);
                 }
             }
@@ -698,10 +694,13 @@ namespace PennywiseJumpscare
             {
                 if (suspenseMusic == null)
                 {
-                    // Generate an original ominous violin cue in memory: no external music file required.
-                    suspenseSound = CreateSuspenseViolinSound();
+                    string musicPath = Path.Combine(Helper.DirectoryPath, "suspense.wav");
+                    if (!File.Exists(musicPath))
+                        throw new FileNotFoundException("suspense.wav is missing from the mod folder.", musicPath);
+                    using (FileStream stream = File.OpenRead(musicPath))
+                        suspenseSound = SoundEffect.FromStream(stream);
                     suspenseMusic = suspenseSound.CreateInstance();
-                    // The update loop restarts the track as soon as it finishes.
+                    suspenseMusic.IsLooped = true;
                     suspenseMusic.Volume = 0.35f;
                 }
 
