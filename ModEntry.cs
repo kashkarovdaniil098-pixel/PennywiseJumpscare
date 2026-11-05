@@ -94,6 +94,9 @@ namespace PennywiseJumpscare
             if (pennywise.currentLocation != Game1.currentLocation)
                 return;
 
+            if (attackCooldown > 0)
+                attackCooldown--;
+
             if (observing)
             {
                 pennywise.controller = null;
@@ -142,9 +145,6 @@ namespace PennywiseJumpscare
                 }
                 return;
             }
-
-            if (attackCooldown > 0)
-                attackCooldown--;
 
             if (chasing && ++pathTimer >= 60)
             {
