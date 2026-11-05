@@ -43,6 +43,8 @@ jobs:
 
           # Generate the original suspense loop with a standalone Python script.
           python generate_suspense.py
+          test -s dist/PennywiseJumpscare/suspense.wav
+          unzip -l <(cd dist && zip -qr - PennywiseJumpscare) | grep -q 'PennywiseJumpscare/suspense.wav'
 
           cd dist
           zip -r ../PennywiseMod.zip PennywiseJumpscare "[CP] Pennywise NPC"
