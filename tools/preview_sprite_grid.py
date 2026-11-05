@@ -9,23 +9,40 @@ out.mkdir(exist_ok=True)
 im = Image.open(source).convert("RGBA")
 w, h = im.size
 cols, rows = 3, 9
-if w % cols or h % rows:
-    raise SystemExit(f"Sheet {w}x{h} is not evenly divisible into {cols}x{rows} cells")
 
-cw, ch = w // cols, h // rows
-canvas = Image.new("RGB", (cols* (cw*4+12)+12, rows*(ch*4+32)+12), "#333333")
+# Use rounded grid boundaries so dimensions like 1024px can be split
+# into 9 near-equal rows (113/114px) without rejecting the sheet.
+xs = [round(i * w / cols) for i in range(cols + 1)]
+ys = [round(i * h / rows) for i in range(rows + 1)]
+frames = []
+for r in range(rows):
+    for c in range(cols):
+        frames.append(im.crop((xs[c], ys[r], xs[c + 1], ys[r + 1])))
+
+scale = 4
+pad, label_h = 12, 28
+cell_w = max(frame.width for frame in frames) * scale
+cell_h = max(frame.height for frame in frames) * scale
+canvas = Image.new("RGB", (pad + cols * (cell_w + pad), pad + rows * (cell_h + label_h + pad)), "#333333")
 draw = ImageDraw.Draw(canvas)
-for i in range(rows*cols):
+
+for i, frame in enumerate(frames):
     r, c = divmod(i, cols)
-    frame = im.crop((c*cw, r*ch, (c+1)*cw, (r+1)*ch))
-    bg = Image.new("RGBA", frame.size, (90,90,90,255))
+    bg = Image.new("RGBA", frame.size, (90, 90, 90, 255))
     bg.alpha_composite(frame)
-    tile = bg.convert("RGB").resize((cw*4,ch*4), Image.Resampling.NEAREST)
-    x, y = 12+c*(cw*4+12), 12+r*(ch*4+32)
-    canvas.paste(tile,(x,y))
-    draw.text((x,y+ch*4+4),f"Frame {i+1:02d}",fill="white")
-canvas.save(out/"sprite_grid_preview.png")
-(out/"sprite_grid_info.json").write_text(json.dumps({
- "source_size":[w,h],"grid":[cols,rows],"frame_size":[cw,ch],"frame_count":27
-},indent=2))
-print(f"OK: {w}x{h}; 3x9; each frame {cw}x{ch}")
+    tile = bg.convert("RGB").resize((frame.width * scale, frame.height * scale), Image.Resampling.NEAREST)
+    x = pad + c * (cell_w + pad)
+    y = pad + r * (cell_h + label_h + pad)
+    canvas.paste(tile, (x, y))
+    draw.text((x, y + cell_h + 4), f"Frame {i + 1:02d} ({frame.width}x{frame.height})", fill="white")
+
+canvas.save(out / "sprite_grid_preview.png")
+(out / "sprite_grid_info.json").write_text(json.dumps({
+    "source_size": [w, h],
+    "grid": [cols, rows],
+    "frame_count": len(frames),
+    "frame_sizes": [[f.width, f.height] for f in frames],
+    "x_boundaries": xs,
+    "y_boundaries": ys
+}, indent=2))
+print(f"OK: {w}x{h}; 3x9; frame sizes range {min(f.width for f in frames)}x{min(f.height for f in frames)} to {max(f.width for f in frames)}x{max(f.height for f in frames)}")
