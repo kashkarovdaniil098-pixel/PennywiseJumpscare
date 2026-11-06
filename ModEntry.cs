@@ -345,9 +345,9 @@ namespace PennywiseJumpscare
             pennywise.setTileLocation(spawn.Value);
             location.addCharacter(pennywise);
             pennywise.speed = Math.Max(1, normalSpeed * 3);
-            // The replacement atlas uses 24x48 frames (1.5x vanilla 16x32),
-            // so keep the draw scale at the NPC's normal value to avoid double scaling.
-            pennywise.Scale = normalScale;
+            // Keep the replacement 24x48 atlas frames and apply a 1.5x draw scale
+            // so Pennywise is visibly larger than a standard NPC in the world.
+            pennywise.Scale = normalScale * 1.5f;
 
             active = true;
             // The balloon warning has ended: Pennywise starts the chase immediately.
