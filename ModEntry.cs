@@ -345,7 +345,7 @@ namespace PennywiseJumpscare
             pennywise.setTileLocation(spawn.Value);
             location.addCharacter(pennywise);
             pennywise.speed = Math.Max(1, normalSpeed * 3);
-            pennywise.Scale = normalScale;
+            pennywise.Scale = normalScale * 1.5f;
 
             active = true;
             // The balloon warning has ended: Pennywise starts the chase immediately.
