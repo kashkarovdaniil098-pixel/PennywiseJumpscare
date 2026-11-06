@@ -346,7 +346,9 @@ namespace PennywiseJumpscare
             location.addCharacter(pennywise);
             pennywise.speed = Math.Max(1, normalSpeed * 3);
             // The new artwork uses 205px-tall frames. Keep its in-game height at roughly 1.5x a vanilla 32px NPC frame.
-            pennywise.Scale = normalScale * (48f / 205f);
+            // Keep the NPC at 1.5x the vanilla size. The atlas frame is 16x32;
+            // the old 48/205 factor shrank it to about 23% and made it almost invisible.
+            pennywise.Scale = normalScale * 1.5f;
 
             active = true;
             // The balloon warning has ended: Pennywise starts the chase immediately.
@@ -549,8 +551,10 @@ namespace PennywiseJumpscare
                 // dimensions instead of assuming a fixed frame size; this prevents
                 // source rectangles from cutting off the edges of a frame.
                 const string assetName = "Characters/Daniil.PennywiseNPC_Pennywise";
-                const int framesPerDirection = 10;
-                const int directionRows = 5;
+                // animations.png is 208x128: a 13-column by 4-row Stardew sheet
+                // with standard 16x32 frames. Do not assume a 10x5 layout.
+                const int framesPerDirection = 13;
+                const int directionRows = 4;
 
                 Texture2D atlas = Helper.GameContent.Load<Texture2D>(assetName);
                 if (atlas.Width <= 0 || atlas.Height <= 0
@@ -573,7 +577,7 @@ namespace PennywiseJumpscare
                 pennywise.Sprite.UpdateSourceRect();
                 customSpriteApplied = true;
                 Monitor.Log(
-                    $"Pennywise sprite loaded: atlas {atlas.Width}x{atlas.Height}, frame {frameWidth}x{frameHeight}; all 6x4 frames fit exactly.",
+                    $"Pennywise sprite loaded: atlas {atlas.Width}x{atlas.Height}, frame {frameWidth}x{frameHeight}; 13x4 frames fit exactly.",
                     LogLevel.Info
                 );
             }
@@ -588,23 +592,24 @@ namespace PennywiseJumpscare
             if (!customSpriteApplied || pennywise == null)
                 return;
 
-            const int framesPerDirection = 10;
+            const int framesPerDirection = 13;
             int row;
 
-            // New sprite sheet: row 0 = right, row 1 = left, row 2 = front/down,
-            // row 3 = back/up, row 4 = attack. Stardew facing IDs: 0=up, 1=right,
-            // 2=down, 3=left.
+            // animations.png uses the standard Stardew row order:
+            // down, right, up, left. Facing IDs: 0=up, 1=right, 2=down, 3=left.
             switch (pennywise.FacingDirection)
             {
-                case 0: row = 3; break;
-                case 1: row = 0; break;
-                case 2: row = 2; break;
-                case 3: row = 1; break;
-                default: row = 2; break;
+                case 0: row = 2; break;
+                case 1: row = 1; break;
+                case 2: row = 0; break;
+                case 3: row = 3; break;
+                default: row = 0; break;
             }
 
+            // There is no fifth attack row in this 13x4 sheet; animate the
+            // front-facing row faster while the attack timer is active.
             if (attackAnimationTimer > 0)
-                row = 4;
+                row = 0;
 
             int frameDelay = attackAnimationTimer > 0 ? 3 : 8;
             int column = (animationFrameTimer / frameDelay) % framesPerDirection;
@@ -910,6 +915,7 @@ namespace PennywiseJumpscare
             observing = false;
             fleeing = false;
             pennywise = null;
+            customSpriteApplied = false;
             normalSpeed = -1;
             appearanceTimer = 0;
             balloonSpawnTimer = 0;
