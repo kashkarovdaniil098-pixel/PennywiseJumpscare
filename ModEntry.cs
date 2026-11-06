@@ -345,7 +345,8 @@ namespace PennywiseJumpscare
             pennywise.setTileLocation(spawn.Value);
             location.addCharacter(pennywise);
             pennywise.speed = Math.Max(1, normalSpeed * 3);
-            pennywise.Scale = normalScale * 1.5f;
+            // The new artwork uses 205px-tall frames. Keep its in-game height at roughly 1.5x a vanilla 32px NPC frame.
+            pennywise.Scale = normalScale * (48f / 205f);
 
             active = true;
             // The balloon warning has ended: Pennywise starts the chase immediately.
@@ -548,8 +549,8 @@ namespace PennywiseJumpscare
                 // dimensions instead of assuming a fixed frame size; this prevents
                 // source rectangles from cutting off the edges of a frame.
                 const string assetName = "Characters/Daniil.PennywiseNPC_Pennywise";
-                const int framesPerDirection = 6;
-                const int directionRows = 4;
+                const int framesPerDirection = 10;
+                const int directionRows = 5;
 
                 Texture2D atlas = Helper.GameContent.Load<Texture2D>(assetName);
                 if (atlas.Width <= 0 || atlas.Height <= 0
@@ -587,29 +588,26 @@ namespace PennywiseJumpscare
             if (!customSpriteApplied || pennywise == null)
                 return;
 
-            const int framesPerDirection = 6;
+            const int framesPerDirection = 10;
             int row;
-            int column;
 
-            // The packaged atlas is 192x128: 6 columns by 4 rows of 32x32 frames.
-            // Its four rows are the four facing directions; attack uses a faster
-            // animation on the current direction instead of reading a nonexistent fifth row.
-            // Atlas rows follow the original artwork: front/down, right-facing side, back/up, left-facing side.
-            // Stardew facing IDs are: 0=up, 1=right, 2=down, 3=left.
+            // New sprite sheet: row 0 = right, row 1 = left, row 2 = front/down,
+            // row 3 = back/up, row 4 = attack. Stardew facing IDs: 0=up, 1=right,
+            // 2=down, 3=left.
             switch (pennywise.FacingDirection)
             {
-                case 0: row = 2; break;
-                case 1: row = 1; break;
-                case 2: row = 0; break;
-                case 3: row = 3; break;
-                default: row = 0; break;
+                case 0: row = 3; break;
+                case 1: row = 0; break;
+                case 2: row = 2; break;
+                case 3: row = 1; break;
+                default: row = 2; break;
             }
 
-            if (emergenceTimer > 0)
-                row = 2;
+            if (attackAnimationTimer > 0)
+                row = 4;
 
             int frameDelay = attackAnimationTimer > 0 ? 3 : 8;
-            column = (animationFrameTimer / frameDelay) % framesPerDirection;
+            int column = (animationFrameTimer / frameDelay) % framesPerDirection;
 
             pennywise.Sprite.currentFrame = row * framesPerDirection + column;
             pennywise.Sprite.UpdateSourceRect();
