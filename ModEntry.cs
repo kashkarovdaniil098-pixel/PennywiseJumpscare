@@ -557,7 +557,7 @@ namespace PennywiseJumpscare
             {
                 // Content Patcher loads the cleaned 192x128 sheet under this asset key.
                 // Constructing a new AnimatedSprite replaces the NPC's original sprite object.
-                pennywise.Sprite = new AnimatedSprite("Characters/Daniil.PennywiseNPC_Pennywise", 0, 32, 32);
+                pennywise.Sprite = new AnimatedSprite("Characters/Daniil.PennywiseNPC_Pennywise", 0, 32, 48);
                 pennywise.Sprite.currentFrame = 0;
                 pennywise.Sprite.UpdateSourceRect();
                 customSpriteApplied = true;
@@ -574,27 +574,34 @@ namespace PennywiseJumpscare
             if (!customSpriteApplied || pennywise == null)
                 return;
 
-            int frame;
-            if (emergenceTimer > 120)
-            {
-                // First three seconds: low crawling motion.
-                frame = (animationFrameTimer / 12) % 6;
-            }
-            else if (emergenceTimer > 0)
-            {
-                // Final two seconds: play the available movement frames in order
-                // to create a gradual rise before the chase begins.
-                int riseFrame = Math.Min(12, (120 - emergenceTimer) / 9);
-                frame = 6 + riseFrame;
-            }
-            else if (attackAnimationTimer > 0)
-                frame = 19 + ((30 - attackAnimationTimer) / 6 % 5);
-            else if (fleeing || chasing)
-                frame = 6 + ((animationFrameTimer / 8) % 13);
-            else
-                frame = (animationFrameTimer / 8) % 6;
+            const int framesPerDirection = 10;
+            int row;
+            int column;
 
-            pennywise.Sprite.currentFrame = frame;
+            if (attackAnimationTimer > 0)
+            {
+                row = 4;
+                column = ((30 - attackAnimationTimer) / 3) % framesPerDirection;
+            }
+            else
+            {
+                // Stardew facing directions: 0=up, 1=right, 2=down, 3=left.
+                // Atlas rows: right, left, down/front, up/back, attack.
+                switch (pennywise.FacingDirection)
+                {
+                    case 1: row = 0; break;
+                    case 3: row = 1; break;
+                    case 2: row = 2; break;
+                    default: row = 3; break;
+                }
+
+                if (emergenceTimer > 0)
+                    row = 2;
+
+                column = (animationFrameTimer / 8) % framesPerDirection;
+            }
+
+            pennywise.Sprite.currentFrame = row * framesPerDirection + column;
             pennywise.Sprite.UpdateSourceRect();
         }
 
