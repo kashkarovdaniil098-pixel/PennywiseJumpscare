@@ -594,12 +594,15 @@ namespace PennywiseJumpscare
             // The packaged atlas is 192x128: 6 columns by 4 rows of 32x32 frames.
             // Its four rows are the four facing directions; attack uses a faster
             // animation on the current direction instead of reading a nonexistent fifth row.
+            // Atlas rows follow the original artwork: front/down, right-facing side, back/up, left-facing side.
+            // Stardew facing IDs are: 0=up, 1=right, 2=down, 3=left.
             switch (pennywise.FacingDirection)
             {
-                case 1: row = 0; break;
-                case 3: row = 1; break;
-                case 2: row = 2; break;
-                default: row = 3; break;
+                case 0: row = 2; break;
+                case 1: row = 1; break;
+                case 2: row = 0; break;
+                case 3: row = 3; break;
+                default: row = 0; break;
             }
 
             if (emergenceTimer > 0)
