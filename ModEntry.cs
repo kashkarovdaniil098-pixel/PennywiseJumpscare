@@ -598,7 +598,7 @@ namespace PennywiseJumpscare
             if (!customSpriteApplied || pennywise == null)
                 return;
 
-            const int framesPerDirection = 10;
+            const int framesPerDirection = 6;
             int row;
             int column;
 
