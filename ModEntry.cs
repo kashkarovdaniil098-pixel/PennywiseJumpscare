@@ -20,6 +20,7 @@ namespace PennywiseJumpscare
         private bool customSpriteApplied;
         private int animationFrameTimer;
         private int attackAnimationTimer;
+        private int emergenceTimer;
         private SoundEffect? suspenseSound;
         private SoundEffectInstance? suspenseMusic;
 
@@ -74,6 +75,7 @@ namespace PennywiseJumpscare
             chasing = false;
             observing = false;
             fleeing = false;
+            emergenceTimer = 0;
             pathTimer = 0;
             Monitor.Log("Save loaded. Pennywise's first appearance is scheduled in 30 seconds.", LogLevel.Info);
         }
@@ -179,6 +181,23 @@ namespace PennywiseJumpscare
                 attackAnimationTimer--;
             animationFrameTimer++;
             UpdateCustomPennywiseFrame();
+
+            if (emergenceTimer > 0)
+            {
+                emergenceTimer--;
+                pennywise.controller = null;
+                pennywise.Halt();
+
+                if (emergenceTimer == 0)
+                {
+                    chasing = true;
+                    pathTimer = 59;
+                    lastPathPosition = pennywise.Position;
+                    stuckChecks = 0;
+                    Monitor.Log("Pennywise finished rising and started chasing the player.", LogLevel.Info);
+                }
+                return;
+            }
 
             if (observing)
             {
@@ -339,12 +358,16 @@ namespace PennywiseJumpscare
             active = true;
             musicRampTimer = 0;
             StartSuspenseMusic();
-            // The balloon is the warning: Pennywise appears at its tile after 10 seconds
-            // and immediately begins chasing instead of standing and watching.
+            // After the balloon vanishes, Pennywise crawls out, slowly rises,
+            // and only then starts pursuing the player.
             observing = false;
-            chasing = true;
+            chasing = false;
             fleeing = false;
+            emergenceTimer = 60 * 5; // 3 seconds crawling + 2 seconds rising.
             observationTimer = 0;
+            pennywise.controller = null;
+            pennywise.Halt();
+            animationFrameTimer = 0;
             // The portrait has already played during the balloon warning, before this spawn.
             silhouetteTimer = 0;
             jumpscareFaceTimer = 0;
@@ -354,7 +377,7 @@ namespace PennywiseJumpscare
             stuckChecks = 0;
             lastPathPosition = pennywise.Position;
 
-            Monitor.Log("Pennywise appeared beside the red balloon and immediately started chasing.", LogLevel.Info);
+            Monitor.Log("Pennywise appeared after the balloon, crawls, slowly rises, then starts chasing.", LogLevel.Info);
         }
 
         private Vector2? FindCoveredSpawn(GameLocation location, Vector2 playerTile)
@@ -552,9 +575,21 @@ namespace PennywiseJumpscare
                 return;
 
             int frame;
-            if (attackAnimationTimer > 0)
+            if (emergenceTimer > 120)
+            {
+                // First three seconds: low crawling motion.
+                frame = (animationFrameTimer / 12) % 6;
+            }
+            else if (emergenceTimer > 0)
+            {
+                // Final two seconds: play the available movement frames in order
+                // to create a gradual rise before the chase begins.
+                int riseFrame = Math.Min(12, (120 - emergenceTimer) / 9);
+                frame = 6 + riseFrame;
+            }
+            else if (attackAnimationTimer > 0)
                 frame = 19 + ((30 - attackAnimationTimer) / 6 % 5);
-            else if (fleeing)
+            else if (fleeing || chasing)
                 frame = 6 + ((animationFrameTimer / 8) % 13);
             else
                 frame = (animationFrameTimer / 8) % 6;
