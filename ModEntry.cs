@@ -39,6 +39,7 @@ namespace PennywiseJumpscare
         private int fleeTimer;
         private int stuckChecks;
         private int musicRampTimer;
+        private bool musicSequenceStarted;
         private float originalMusicVolume = -1f;
         private int silhouetteTimer;
         private int jumpscareFaceTimer;
@@ -116,9 +117,13 @@ namespace PennywiseJumpscare
                 Monitor.Log("Pennywise NPC found.", LogLevel.Info);
             }
 
-            // Wait 30 seconds after the previous scene has fully ended.
+            // Start the suspense track as soon as the warning balloon appears,
+            // not when Pennywise spawns. The game track fades out at the same time.
             if (!active)
             {
+                if (musicSequenceStarted)
+                    UpdateEncounterMusic();
+
                 if (balloonSpawnTimer > 0)
                 {
                     balloonSpawnTimer--;
@@ -153,24 +158,8 @@ namespace PennywiseJumpscare
                 return;
             }
 
-            // Bring the encounter music up to full volume over 3 seconds.
-            if (suspenseMusic != null)
-            {
-                if (suspenseMusic.State != SoundState.Playing)
-                    suspenseMusic.Play();
-                if (musicRampTimer < 180)
-                    musicRampTimer++;
-                float musicBlend = Math.Min(1f, musicRampTimer / 180f);
-                suspenseMusic.Volume = 0.35f + musicBlend * 0.65f;
-
-                // Fade the game's current music down as Pennywise's track rises.
-                if (originalMusicVolume >= 0f)
-                {
-                    float gameMusicVolume = originalMusicVolume * (1f - musicBlend);
-                    Game1.musicPlayerVolume = gameMusicVolume;
-                    Game1.musicCategory.SetVolume(gameMusicVolume);
-                }
-            }
+            if (musicSequenceStarted)
+                UpdateEncounterMusic();
 
             if (pennywise.currentLocation != Game1.currentLocation)
                 return;
@@ -293,6 +282,10 @@ namespace PennywiseJumpscare
             balloonLocation = location;
             balloonVisible = true;
             balloonSpawnTimer = 60 * 10;
+            originalMusicVolume = Game1.musicPlayerVolume;
+            musicRampTimer = 0;
+            musicSequenceStarted = true;
+            StartSuspenseMusic();
             LoadJumpscarePortrait();
             silhouetteTimer = 45;
             jumpscareFaceTimer = 0;
@@ -354,16 +347,12 @@ namespace PennywiseJumpscare
             pennywise.speed = Math.Max(1, normalSpeed * 3);
             pennywise.Scale = normalScale;
 
-            originalMusicVolume = Game1.musicPlayerVolume;
             active = true;
-            musicRampTimer = 0;
-            StartSuspenseMusic();
-            // After the balloon vanishes, Pennywise crawls out, slowly rises,
-            // and only then starts pursuing the player.
+            // The balloon warning has ended: Pennywise starts the chase immediately.
             observing = false;
-            chasing = false;
+            chasing = true;
             fleeing = false;
-            emergenceTimer = 60 * 5; // 3 seconds crawling + 2 seconds rising.
+            emergenceTimer = 0;
             observationTimer = 0;
             pennywise.controller = null;
             pennywise.Halt();
@@ -800,6 +789,28 @@ namespace PennywiseJumpscare
             return new SoundEffect(pcm, sampleRate, AudioChannels.Mono);
         }
 
+        private void UpdateEncounterMusic()
+        {
+            if (suspenseMusic == null)
+                return;
+
+            if (suspenseMusic.State != SoundState.Playing)
+                suspenseMusic.Play();
+
+            // Make the hand-off feel sudden: complete the transition in about 0.4 seconds.
+            if (musicRampTimer < 24)
+                musicRampTimer++;
+            float musicBlend = Math.Min(1f, musicRampTimer / 24f);
+            suspenseMusic.Volume = 0.35f + musicBlend * 0.65f;
+
+            if (originalMusicVolume >= 0f)
+            {
+                float gameMusicVolume = originalMusicVolume * (1f - musicBlend);
+                Game1.musicPlayerVolume = gameMusicVolume;
+                Game1.musicCategory.SetVolume(gameMusicVolume);
+            }
+        }
+
         private void StartSuspenseMusic()
         {
             try
@@ -847,6 +858,7 @@ namespace PennywiseJumpscare
             StopSuspenseMusic();
             RestoreGameMusic();
             musicRampTimer = 0;
+            musicSequenceStarted = false;
 
             // Leave the balloon at the exact place Pennywise disappears.
             Vector2 finalBalloonTile = pennywise?.Tile ?? balloonTile;
@@ -885,6 +897,7 @@ namespace PennywiseJumpscare
             StopSuspenseMusic();
             RestoreGameMusic();
             musicRampTimer = 0;
+            musicSequenceStarted = false;
             if (pennywise != null)
             {
                 pennywise.controller = null;
