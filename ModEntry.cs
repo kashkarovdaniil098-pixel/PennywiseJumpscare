@@ -602,7 +602,7 @@ namespace PennywiseJumpscare
             int row;
             int column;
 
-            // The actual atlas is 192x128: 6 columns by 4 rows of 32x32 frames.
+            // The packaged atlas is 192x128: 6 columns by 4 rows of 32x32 frames.
             // Its four rows are the four facing directions; attack uses a faster
             // animation on the current direction instead of reading a nonexistent fifth row.
             switch (pennywise.FacingDirection)
