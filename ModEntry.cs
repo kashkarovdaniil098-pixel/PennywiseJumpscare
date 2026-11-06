@@ -555,13 +555,37 @@ namespace PennywiseJumpscare
 
             try
             {
-                // Content Patcher loads the cleaned 192x128 sheet under this asset key.
+                // The atlas contains 10 columns and 5 animation rows. Read its real
+                // dimensions instead of assuming a fixed frame size; this prevents
+                // source rectangles from cutting off the edges of a frame.
+                const string assetName = "Characters/Daniil.PennywiseNPC_Pennywise";
+                const int framesPerDirection = 10;
+                const int directionRows = 5;
+
+                Texture2D atlas = Helper.GameContent.Load<Texture2D>(assetName);
+                if (atlas.Width <= 0 || atlas.Height <= 0
+                    || atlas.Width % framesPerDirection != 0
+                    || atlas.Height % directionRows != 0)
+                {
+                    Monitor.Log(
+                        $"Pennywise sprite atlas has unexpected dimensions ({atlas.Width}x{atlas.Height}); expected a grid divisible by {framesPerDirection}x{directionRows}. Sprite was not replaced to avoid broken or cropped frames.",
+                        LogLevel.Error
+                    );
+                    return;
+                }
+
+                int frameWidth = atlas.Width / framesPerDirection;
+                int frameHeight = atlas.Height / directionRows;
+
                 // Constructing a new AnimatedSprite replaces the NPC's original sprite object.
-                pennywise.Sprite = new AnimatedSprite("Characters/Daniil.PennywiseNPC_Pennywise", 0, 32, 48);
+                pennywise.Sprite = new AnimatedSprite(assetName, 0, frameWidth, frameHeight);
                 pennywise.Sprite.currentFrame = 0;
                 pennywise.Sprite.UpdateSourceRect();
                 customSpriteApplied = true;
-                Monitor.Log("Replaced Pennywise's original NPC sprite with the full-size animation sheet.", LogLevel.Info);
+                Monitor.Log(
+                    $"Pennywise sprite loaded: atlas {atlas.Width}x{atlas.Height}, frame {frameWidth}x{frameHeight}; all 10x5 frames fit exactly.",
+                    LogLevel.Info
+                );
             }
             catch (Exception ex)
             {
